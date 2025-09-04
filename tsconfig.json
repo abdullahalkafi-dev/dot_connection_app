@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                         // Modern JS target (ES6+). You can also use ESNext if your runtime supports it.
+    "module": "CommonJS",                            // Use ES6 module system (import/export)
+    "rootDir": "./src",                         // Where your TypeScript files live
+    "outDir": "./dist",                         // Where the compiled JS goes
+    "moduleResolution": "node",                 // Resolves node-style imports
+    "esModuleInterop": true,                    // Allows default import from CJS modules
+    "forceConsistentCasingInFileNames": true,   // Prevents casing bugs in imports
+    "strict": true,                             // Enable all strict type-checking
+    "skipLibCheck": true,                       // Speeds up builds by skipping type check for node_modules
+    "allowSyntheticDefaultImports": true,       // Let you import without writing `.default`
+    "resolveJsonModule": true,                  // Let you import JSON files
+    "noEmitOnError": true,                      // Prevent JS emit if there's a TypeScript error
+    "declaration": true,                        // Emit .d.ts files (great for library projects)
+    "sourceMap": true                           // Emit source maps for debugging
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

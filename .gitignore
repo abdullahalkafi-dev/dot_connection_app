@@ -1,0 +1,7 @@
+node_modules
+.env
+medmeet-admin.json
+/winston
+/uploads/
+dist/
+.pnpm-store/
