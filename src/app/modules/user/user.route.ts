@@ -9,25 +9,50 @@ import { USER_ROLES } from "./user.constant";
 const router = express.Router();
 
 // User routes
+
+//! both for login and create account
+//!mine
 router.post(
   "/",
   validateRequest(UserValidation.createUser),
   UserController.createUser
 );
+
 router.get(
   "/",
   auth(USER_ROLES.ADMIN, USER_ROLES.USER),
   UserController.getAllUsers
 );
 
+//!mine
 router.get("/getme", auth(), UserController.getMe);
+
 router.patch(
   "/profile",
   auth(USER_ROLES.USER, USER_ROLES.ADMIN),
   validateRequest(UserValidation.updateUserProfile),
   UserController.updateUserProfile
 );
+
+//!mine
+router.put(
+  "/add-user-fields",
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
+  validateRequest(UserValidation.addUserFields),
+  UserController.addUserFields
+);
+//!mine
+router.put(
+  "/add-profile-fields",
+  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
+  validateRequest(UserValidation.addProfileFields),
+  UserController.addProfileFields
+);
+
+
+
 router.get("/:id", UserController.getUserById);
+//!mine
 router.patch(
   "/",
   auth(),
@@ -53,30 +78,11 @@ router.patch(
   UserController.updateUser
 );
 
-// Authentication routes - Signin flow
-router.post(
-  "/signin",
-  validateRequest(UserValidation.signin),
-  UserController.signin
-);
-
-// Legacy routes (for backward compatibility)
-router.post(
-  "/send-otp",
-  validateRequest(UserValidation.loginRequest),
-  UserController.sendOTPForLogin
-);
-
+//!mine
 router.post(
   "/verify-otp",
   validateRequest(UserValidation.verifyOTP),
   UserController.verifyOTPAndLogin
-);
-
-router.post(
-  "/resend-otp",
-  validateRequest(UserValidation.loginRequest),
-  UserController.resendOTP
 );
 
 router.delete("/delete", auth(), UserController.changeUserStatus);

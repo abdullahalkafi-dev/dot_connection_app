@@ -5,12 +5,12 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
-  const user = await UserServices.createUser(req.body);
+  const {  message } = await UserServices.createUser(req.body);
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
-    message: "User created successfully",
-    data: user,
+    message: message,
+    data: null,
   });
 });
 
@@ -35,7 +35,7 @@ const getUserById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 const getMe = catchAsync(async (req: Request, res: Response) => {
-  const user = await UserServices.getUserById(req.user.id);
+  const user = await UserServices.getMe(req.user._id);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -80,7 +80,7 @@ const updateUserByToken = catchAsync(async (req: Request, res: Response) => {
     delete user.image;
   }
 
-  const id = req.user.id;
+  const id = req.user._id;
   const result = await UserServices.updateUserByToken(id, user);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -223,7 +223,26 @@ const signin = catchAsync(async (req: Request, res: Response) => {
     });
   }
 });
-
+const addUserFields = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user._id;
+  const result = await UserServices.addUserFields(userId, req.body);  
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "User fields added successfully",
+    data: result,
+  });
+});
+const addProfileFields = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user._id;
+  const result = await UserServices.addProfileFields(userId, req.body);  
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Profile fields added successfully",
+    data: result,
+  });
+});
 export const UserController = {
   createUser,
   getAllUsers,
@@ -239,4 +258,6 @@ export const UserController = {
   verifyOTPAndLogin,
   resendOTP,
   updateUserProfile,
+  addUserFields,
+  addProfileFields
 };

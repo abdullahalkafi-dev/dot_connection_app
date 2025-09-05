@@ -133,7 +133,7 @@ const profileSchema = new Schema<TProfile, ProfileModal>(
         "other",
         "prefer_not_to_say",
       ],
-      default: [],
+      default: "prefer_not_to_say",
     },
     profileViews: {
       type: Number,

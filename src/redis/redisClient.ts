@@ -2,7 +2,7 @@ import { createClient, RedisClientType } from 'redis';
 import config from '../config';
 
 class RedisClient {
-  private client: RedisClientType;
+  private clientInstance: RedisClientType;
   private isConnected: boolean = false;
   private connectionPromise: Promise<void> | null = null;
   private retryCount: number = 0;
@@ -10,12 +10,13 @@ class RedisClient {
   private retryDelay: number = 1000; // 1 second
 
   constructor() {
-    this.client = createClient({
+    this.clientInstance = createClient({
       url: process.env.REDIS_URL || `redis://${config.redis.host}:${config.redis.port}`,
       password: config.redis.password || undefined,
       socket: {
-        connectTimeout: 60000, // 60 seconds
+        connectTimeout: 5000, // Reduced from 60 seconds
         keepAlive: 30000, // 30 seconds
+        noDelay: true, // Disable Nagle's algorithm for lower latency
         reconnectStrategy: (retries: number) => {
           console.warn(`Redis reconnection attempt ${retries}`);
           if (retries > this.maxRetries) {
@@ -31,31 +32,36 @@ class RedisClient {
   }
 
   private setupEventHandlers(): void {
-    this.client.on('error', (err: Error) => {
+    this.clientInstance.on('error', (err: Error) => {
       console.error('Redis Client Error:', err);
       this.isConnected = false;
     });
 
-    this.client.on('connect', () => {
+    this.clientInstance.on('connect', () => {
       console.log('Redis client connected');
       this.isConnected = true;
       this.retryCount = 0;
     });
 
-    this.client.on('disconnect', () => {
+    this.clientInstance.on('disconnect', () => {
       console.log('Redis client disconnected');
       this.isConnected = false;
     });
 
-    this.client.on('ready', () => {
+    this.clientInstance.on('ready', () => {
       console.log('Redis client ready');
       this.isConnected = true;
     });
 
-    this.client.on('end', () => {
+    this.clientInstance.on('end', () => {
       console.log('Redis client connection ended');
       this.isConnected = false;
     });
+  }
+
+  // Getter for the client instance
+  get client(): RedisClientType {
+    return this.clientInstance;
   }
 
   async connect(): Promise<void> {
@@ -76,7 +82,7 @@ class RedisClient {
 
   private async attemptConnection(): Promise<void> {
     try {
-      await this.client.connect();
+      await this.clientInstance.connect();
       console.log('Connected to Redis');
     } catch (error) {
       console.error('Failed to connect to Redis:', error);
@@ -92,7 +98,7 @@ class RedisClient {
 
   async disconnect(): Promise<void> {
     if (this.isConnected) {
-      await this.client.disconnect();
+      await this.clientInstance.disconnect();
       this.isConnected = false;
     }
   }
@@ -101,7 +107,7 @@ class RedisClient {
   async healthCheck(): Promise<boolean> {
     try {
       await this.ensureConnected();
-      await this.client.ping();
+      await this.clientInstance.ping();
       return true;
     } catch (error) {
       console.error('Redis health check failed:', error);
@@ -111,8 +117,11 @@ class RedisClient {
 
   async set(key: string, value: string, expiryInSec: number = 3600): Promise<void> {
     try {
-      await this.ensureConnected();
-      await this.client.setEx(key, expiryInSec, value);
+      // Only ensure connection if not already connected
+      if (!this.isConnected) {
+        await this.ensureConnected();
+      }
+      await this.clientInstance.setEx(key, expiryInSec, value);
     } catch (err) {
       console.error(`Error setting key ${key}:`, err);
       throw err;
@@ -121,8 +130,11 @@ class RedisClient {
 
   async get(key: string): Promise<string | null> {
     try {
-      await this.ensureConnected();
-      return await this.client.get(key);
+      // Only ensure connection if not already connected
+      if (!this.isConnected) {
+        await this.ensureConnected();
+      }
+      return await this.clientInstance.get(key);
     } catch (err) {
       console.error(`Error getting key ${key}:`, err);
       throw err;
@@ -131,8 +143,11 @@ class RedisClient {
 
   async delete(key: string): Promise<void> {
     try {
-      await this.ensureConnected();
-      await this.client.del(key);
+      // Only ensure connection if not already connected
+      if (!this.isConnected) {
+        await this.ensureConnected();
+      }
+      await this.clientInstance.del(key);
     } catch (err) {
       console.error(`Error deleting key ${key}:`, err);
       throw err;
@@ -141,8 +156,11 @@ class RedisClient {
 
   async keys(pattern: string): Promise<string[]> {
     try {
-      await this.ensureConnected();
-      return await this.client.keys(pattern);
+      // Only ensure connection if not already connected
+      if (!this.isConnected) {
+        await this.ensureConnected();
+      }
+      return await this.clientInstance.keys(pattern);
     } catch (err) {
       console.error(`Error getting keys with pattern ${pattern}:`, err);
       throw err;

@@ -7,19 +7,20 @@ export type TUser = {
   lastName?: string;
   email: string;
   image?: string;
-  address?: string;
+
   role?: keyof typeof USER_ROLES;
   phoneNumber?: string;
   fcmToken?: string;
   status?: "active" | "delete";
   verified?: boolean;
-  allFieldsFilled?: boolean;
   authentication?: {
     oneTimeCode?: string;
     expireAt?: Date;
     loginAttempts?: number;
     lastLoginAttempt?: Date;
   };
+  allProfileFieldsFilled: boolean;
+  allUserFieldsFilled: boolean;
   pushNotification: boolean;
   lastLoginAt?: Date;
   dateOfBirth?: Date;

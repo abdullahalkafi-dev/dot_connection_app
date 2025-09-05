@@ -44,11 +44,9 @@ const userSchema = new Schema<TUser, UserModal>(
     image: {
       type: String,
       trim: true,
+      default: null,
     },
-    address: {
-      type: String,
-      trim: true,
-    },
+  
     role: {
       type: String,
       enum: ["ADMIN", "USER"],
@@ -58,6 +56,7 @@ const userSchema = new Schema<TUser, UserModal>(
     phoneNumber: {
       type: String,
       trim: true,
+      default: null,
     },
 
     fcmToken: {
@@ -73,7 +72,11 @@ const userSchema = new Schema<TUser, UserModal>(
       type: Boolean,
       default: false,
     },
-    allFieldsFilled: {
+    allProfileFieldsFilled: {
+      type: Boolean,
+      default: false,
+    },
+    allUserFieldsFilled: {
       type: Boolean,
       default: false,
     },

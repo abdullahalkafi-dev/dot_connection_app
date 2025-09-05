@@ -1,9 +1,17 @@
 // user.cacheManage.ts
 import cacheService from "../../../redis/cacheService";
+import fastCacheService from "../../../redis/fastCacheService";
+import cacheMonitor from "../../../redis/cacheMonitor";
 import { normalizeQuery } from "../../../util/normalizeQuery";
 import { TUser } from "./user.interface";
 
 const DEFAULT_TTL = 60 * 60 * 12; // 12 hours
+
+// Cache for normalized query keys to avoid recomputation
+const queryKeyCache = new Map<string, string>();
+
+// Use fast cache for single user operations (most common)
+const USE_FAST_CACHE_FOR_USERS = true;
 
 const UserCacheManage = {
   keys: {
@@ -11,10 +19,24 @@ const UserCacheManage = {
     userListWithQuery: "userListWithQuery",
     userId: (id: string) => `user:${id}`,
     userListWithQueryKey: (query: Record<string, unknown>) => {
+      // Create a simple hash of the query for caching
+      const queryString = JSON.stringify(query);
+      
+      // Check if we already computed this key
+      if (queryKeyCache.has(queryString)) {
+        return queryKeyCache.get(queryString)!;
+      }
+      
+      // Only normalize if not cached
       const normalized = normalizeQuery(query);
-      return `${UserCacheManage.keys.userListWithQuery}:${JSON.stringify(
-        normalized
-      )}`;
+      const key = `${UserCacheManage.keys.userListWithQuery}:${JSON.stringify(normalized)}`;
+      
+      // Cache the result (with size limit to prevent memory leaks)
+      if (queryKeyCache.size < 1000) {
+        queryKeyCache.set(queryString, key);
+      }
+      
+      return key;
     },
   },
   updateUserCache: async (userId: string) => {
@@ -36,22 +58,47 @@ const UserCacheManage = {
   },
 
   getCacheSingleUser: async (userId: string): Promise<TUser | null> => {
+    const startTime = Date.now();
+    let success = true;
+    
     try {
       const key = UserCacheManage.keys.userId(userId);
-      const cached = await cacheService.getCache<TUser>(key);
+      
+      // Use fast cache service for better performance
+      const cached = USE_FAST_CACHE_FOR_USERS 
+        ? await fastCacheService.getCache<TUser>(key)
+        : await cacheService.getCache<TUser>(key);
+        
       return cached ?? null;
     } catch (error) {
+      success = false;
       console.warn('Error getting cached user:', error);
       return null;
+    } finally {
+      const duration = Date.now() - startTime;
+      cacheMonitor.logOperation(`user:get:${userId}`, duration, success);
     }
   },
 
   setCacheSingleUser: async (userId: string, data: Partial<TUser>) => {
+    const startTime = Date.now();
+    let success = true;
+    
     try {
       const key = UserCacheManage.keys.userId(userId);
-      await cacheService.setCache(key, data, DEFAULT_TTL);
+      
+      // Use fast cache service for better performance
+      if (USE_FAST_CACHE_FOR_USERS) {
+        await fastCacheService.setCache(key, data, DEFAULT_TTL);
+      } else {
+        await cacheService.setCache(key, data, DEFAULT_TTL);
+      }
     } catch (error) {
+      success = false;
       console.warn('Error setting cached user:', error);
+    } finally {
+      const duration = Date.now() - startTime;
+      cacheMonitor.logOperation(`user:set:${userId}`, duration, success);
     }
   },
 

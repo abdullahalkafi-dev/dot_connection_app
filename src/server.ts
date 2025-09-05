@@ -8,6 +8,8 @@ import http from 'http';
 import { errorLogger, logger } from './shared/logger';
 
 import redisClient from './redis/redisClient';
+import cacheMonitor from './redis/cacheMonitor';
+import cacheWarmer from './redis/cacheWarmer';
 import app from './app';
 import config from './config';
 import seedSuperAdmin from './DB';
@@ -27,7 +29,18 @@ async function main() {
     const port =
       typeof config.port === 'number' ? config.port : Number(config.port);
       console.log(port, 'port');
+      
+      // Initialize Redis connection
       await redisClient.connect();
+      logger.info(colors.cyan('📡 Redis connected successfully'));
+      
+      // Start cache monitoring
+      cacheMonitor.startHealthMonitoring(30000); // Check every 30 seconds
+      logger.info(colors.yellow('📊 Cache monitoring started'));
+      
+      // Schedule cache warming
+      cacheWarmer.scheduleWarmup();
+      logger.info(colors.magenta('🔥 Cache warming scheduled'));
     server.listen(port, config.ip_address as string, () => {
       logger.info(
         colors.yellow(`♻️  Application listening ${config.ip_address} on port:${config.port}`)

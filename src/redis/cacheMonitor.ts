@@ -14,9 +14,18 @@ interface CacheHealthStatus {
   lastChecked: Date;
 }
 
+interface PerformanceRecord {
+  operation: string;
+  duration: number;
+  success: boolean;
+  timestamp: Date;
+}
+
 class CacheMonitor {
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private lastHealthStatus: CacheHealthStatus | null = null;
+  private performanceData: PerformanceRecord[] = [];
+  private readonly MAX_PERFORMANCE_RECORDS = 1000;
 
   // Start monitoring cache health
   startHealthMonitoring(intervalMs: number = 60000): void { // Default 1 minute
@@ -25,6 +34,60 @@ class CacheMonitor {
     }, intervalMs);
 
     console.log(`Cache health monitoring started (interval: ${intervalMs}ms)`);
+  }
+
+  // Log cache operation performance
+  logOperation(operation: string, duration: number, success: boolean = true): void {
+    this.performanceData.push({
+      operation,
+      duration,
+      success,
+      timestamp: new Date()
+    });
+    
+    // Keep only recent records to prevent memory issues
+    if (this.performanceData.length > this.MAX_PERFORMANCE_RECORDS) {
+      this.performanceData = this.performanceData.slice(-this.MAX_PERFORMANCE_RECORDS);
+    }
+    
+    // Log slow operations
+    if (duration > 100) {
+      console.warn(`🐌 Slow cache operation: ${operation} took ${duration}ms`);
+    }
+  }
+
+  // Get performance metrics for the last hour
+  getPerformanceMetrics(): {
+    avgResponseTime: number;
+    slowQueries: Array<{ key: string; duration: number; timestamp: Date }>;
+    operationCount: number;
+  } {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentData = this.performanceData.filter(d => d.timestamp > oneHourAgo);
+    
+    if (recentData.length === 0) {
+      return {
+        avgResponseTime: 0,
+        slowQueries: [],
+        operationCount: 0
+      };
+    }
+    
+    const successful = recentData.filter(d => d.success);
+    const slowQueries = recentData
+      .filter(d => d.duration > 100)
+      .map(d => ({
+        key: d.operation,
+        duration: d.duration,
+        timestamp: d.timestamp
+      }))
+      .slice(-10); // Last 10 slow queries
+    
+    return {
+      avgResponseTime: successful.reduce((sum, d) => sum + d.duration, 0) / successful.length,
+      slowQueries,
+      operationCount: recentData.length
+    };
   }
 
   // Stop monitoring
