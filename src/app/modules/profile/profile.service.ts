@@ -3,42 +3,8 @@ import { QueryBuilder } from "../../builder/QueryBuilder";
 import AppError from "../../errors/AppError";
 import { TProfile, TReturnProfile } from "./profile.interface";
 import { Profile } from "./profile.model";
-import { User } from "../user/user.model";
-import { UserServices } from "../user/user.service";
+
 import ProfileCacheManage from "./profile.cacheManage";
-
-const createProfile = async (
-  userId: string,
-  profileData: Partial<TProfile>
-): Promise<TProfile> => {
-  // Check if user exists
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
-  }
-
-  // Check if profile already exists
-  const existingProfile = await Profile.findOne({ userId });
-  if (existingProfile) {
-    const res = await updateProfile(userId, profileData);
-    return res;
-  }
-
-  // Create profile
-  const profile = await Profile.create({
-    ...profileData,
-    userId,
-  });
-
-  if (!profile) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "Profile creation failed");
-  }
-
-  // Update user's allFieldsFilled status
-  await UserServices.updateUserProfile(userId, { allFieldsFilled: false });
-
-  return profile;
-};
 
 const getAllProfiles = async (
   query: Record<string, unknown>
@@ -116,104 +82,6 @@ const getMyProfile = async (userId: string): Promise<TProfile> => {
   await ProfileCacheManage.setCachedProfileByUserId(userId, profile);
 
   return profile;
-};
-
-const updateProfile = async (
-  userId: string,
-  updateData: Partial<TProfile>
-): Promise<TProfile> => {
-  const profile = await Profile.findOne({ userId });
-  if (!profile) {
-    throw new AppError(
-      StatusCodes.NOT_FOUND,
-      "Profile not found for this user"
-    );
-  }
-  const updatedProfile = await Profile.findByIdAndUpdate(
-    profile._id,
-    { $set: updateData },
-    { new: true, runValidators: true }
-  ).populate({
-    path: "userId",
-    select: "-authentication",
-  });
-  if (!updatedProfile) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "Profile update failed");
-  }
-  let isComplete = false;
-  if (
-    updatedProfile.lookingFor &&
-    updatedProfile.ageRangeMin &&
-    updatedProfile.ageRangeMax &&
-    updatedProfile.interestedIn &&
-    updatedProfile.location &&
-    updatedProfile.bio &&
-    updatedProfile.interests &&
-    updatedProfile.interests.length > 0 &&
-    updatedProfile.maxDistance &&
-    updatedProfile.gender &&
-    updatedProfile.height &&
-    updatedProfile.workplace &&
-    updatedProfile.school &&
-    updatedProfile.hometown &&
-    updatedProfile.jobTitle &&
-    updatedProfile.smokingStatus &&
-    updatedProfile.drinkingStatus &&
-    updatedProfile.religious &&
-    updatedProfile.studyLevel
-  ) {
-    isComplete = true;
-  }
-  console.log({
-    lookingFor: updatedProfile.lookingFor,
-    ageRangeMin: updatedProfile.ageRangeMin,
-    ageRangeMax: updatedProfile.ageRangeMax,
-    interestedIn: updatedProfile.interestedIn,
-    location: updatedProfile.location,
-    bio: updatedProfile.bio,
-    interests: updatedProfile.interests,
-    maxDistance: updatedProfile.maxDistance,
-    gender: updatedProfile.gender,
-    height: updatedProfile.height,
-    workplace: updatedProfile.workplace,
-    school: updatedProfile.school,
-    hometown: updatedProfile.hometown,
-    jobTitle: updatedProfile.jobTitle,
-    smokingStatus: updatedProfile.smokingStatus,
-    drinkingStatus: updatedProfile.drinkingStatus,
-    religious: updatedProfile.religious,
-    studyLevel: updatedProfile.studyLevel,
-  });
-  await UserServices.updateUserProfile(userId, {
-    allFieldsFilled: isComplete,
-  });
-  // Invalidate cache after update
-  await ProfileCacheManage.invalidateProfileCache(
-    userId,
-    profile._id?.toString()
-  );
-  return updatedProfile;
-};
-
-const deleteProfile = async (userId: string): Promise<void> => {
-  const profile = await Profile.findOne({ userId });
-  if (!profile) {
-    throw new AppError(
-      StatusCodes.NOT_FOUND,
-      "Profile not found for this user"
-    );
-  }
-
-  await Profile.findByIdAndDelete(profile._id);
-
-  // Update user's allFieldsFilled status
-  await UserServices.updateUserProfile(userId, { allFieldsFilled: false });
-
-  // Invalidate cache after deletion
-  await ProfileCacheManage.invalidateProfileCache(
-    userId,
-    profile._id?.toString()
-  );
 };
 
 const searchProfiles = async (
@@ -332,12 +200,9 @@ const updatePreferences = async (
 };
 
 export const ProfileServices = {
-  createProfile,
   getAllProfiles,
   getProfileByUserId,
   getMyProfile,
-  updateProfile,
-  deleteProfile,
   searchProfiles,
   updatePreferences,
 };

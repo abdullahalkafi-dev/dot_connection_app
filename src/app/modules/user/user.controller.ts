@@ -3,9 +3,9 @@ import { StatusCodes } from "http-status-codes";
 import { UserServices } from "./user.service";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
-
+//!mine
 const createUser = catchAsync(async (req: Request, res: Response) => {
-  const {  message } = await UserServices.createUser(req.body);
+  const { message } = await UserServices.createUser(req.body);
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
@@ -34,6 +34,7 @@ const getUserById = catchAsync(async (req: Request, res: Response) => {
     data: user,
   });
 });
+//!mine
 const getMe = catchAsync(async (req: Request, res: Response) => {
   const user = await UserServices.getMe(req.user._id);
   sendResponse(res, {
@@ -66,11 +67,12 @@ const updateUser = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+//!mine
 const updateUserByToken = catchAsync(async (req: Request, res: Response) => {
   const userdata = JSON.parse(req.body.data);
   let image = null;
   if (req.files && "image" in req.files && req.files.image[0]) {
-    image = req.files.image[0].path;
+    image = req.files.image[0].path.replace("/app/uploads", "");
   }
   const user = {
     ...userdata,
@@ -130,6 +132,7 @@ const sendOTPForLogin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+//!mine
 // Verify OTP and login
 const verifyOTPAndLogin = catchAsync(async (req: Request, res: Response) => {
   const { email, otp } = req.body;
@@ -175,18 +178,7 @@ const changeUserStatus = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// Update user profile with all fields check
-const updateUserProfile = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user._id;
-  const result = await UserServices.updateUserProfile(userId, req.body);
 
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "User profile updated successfully",
-    data: result,
-  });
-});
 
 // Unified signin - handles both OTP request and verification
 const signin = catchAsync(async (req: Request, res: Response) => {
@@ -223,9 +215,10 @@ const signin = catchAsync(async (req: Request, res: Response) => {
     });
   }
 });
+//!mine
 const addUserFields = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user._id;
-  const result = await UserServices.addUserFields(userId, req.body);  
+  const result = await UserServices.addUserFields(userId, req.body);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -233,13 +226,55 @@ const addUserFields = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+//!mine
 const addProfileFields = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user._id;
-  const result = await UserServices.addProfileFields(userId, req.body);  
+  const result = await UserServices.addProfileFields(userId, req.body);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
     message: "Profile fields added successfully",
+    data: result,
+  });
+});
+//!mine
+const updateProfileByToken = catchAsync(async (req: Request, res: Response) => {
+  const profileData = JSON.parse(req.body.data);
+  let newImages: string[] = [];
+  
+  // Handle multiple image uploads
+  if (req.files && "image" in req.files && Array.isArray(req.files.image)) {
+    newImages = req.files.image.map((file: any) => 
+      file.path.replace("/app/uploads", "")
+    );
+  }
+  
+  const profile = {
+    ...profileData,
+    newPhotos: newImages, // Send new images separately to service
+  };
+  
+  const userId = req.user._id;
+  const result = await UserServices.updateProfileByToken(userId, profile);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Profile updated successfully",
+    data: result,
+  });
+});
+
+//!mine
+// Delete single profile image by index
+const deleteProfileImage = catchAsync(async (req: Request, res: Response) => {
+  const { imageIndex } = req.params;
+  const userId = req.user._id;
+  
+  const result = await UserServices.deleteProfileImage(userId, parseInt(imageIndex));
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Image deleted successfully",
     data: result,
   });
 });
@@ -257,7 +292,8 @@ export const UserController = {
   sendOTPForLogin,
   verifyOTPAndLogin,
   resendOTP,
-  updateUserProfile,
   addUserFields,
-  addProfileFields
+  addProfileFields,
+  updateProfileByToken,
+  deleteProfileImage,
 };

@@ -1,12 +1,7 @@
 import colors from 'colors';
 import mongoose from 'mongoose';
-
-
-
-// import seedSuperAdmin from './DB';
 import http from 'http';
 import { errorLogger, logger } from './shared/logger';
-
 import redisClient from './redis/redisClient';
 import cacheMonitor from './redis/cacheMonitor';
 import cacheWarmer from './redis/cacheWarmer';
@@ -22,8 +17,14 @@ process.on('uncaughtException', error => {
 export const server = http.createServer(app);
 async function main() {
   try {
-    seedSuperAdmin();
-    mongoose.connect(config.database_url as string);
+    await  mongoose.connect(config.database_url as string, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+      bufferCommands: false,
+    });
+    await seedSuperAdmin();
+
     logger.info(colors.green('🚀 Database connected successfully'));
 
     const port =
@@ -38,6 +39,7 @@ async function main() {
       cacheMonitor.startHealthMonitoring(30000); // Check every 30 seconds
       logger.info(colors.yellow('📊 Cache monitoring started'));
       
+
       // Schedule cache warming
       cacheWarmer.scheduleWarmup();
       logger.info(colors.magenta('🔥 Cache warming scheduled'));

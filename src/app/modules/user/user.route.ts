@@ -5,6 +5,7 @@ import { UserValidation } from "./user.validation";
 import fileUploadHandler from "../../middlewares/fileUploadHandler";
 import auth from "../../middlewares/auth";
 import { USER_ROLES } from "./user.constant";
+import { ProfileValidations } from "../profile/profile.validation";
 
 const router = express.Router();
 
@@ -27,13 +28,6 @@ router.get(
 //!mine
 router.get("/getme", auth(), UserController.getMe);
 
-router.patch(
-  "/profile",
-  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
-  validateRequest(UserValidation.updateUserProfile),
-  UserController.updateUserProfile
-);
-
 //!mine
 router.put(
   "/add-user-fields",
@@ -49,17 +43,33 @@ router.put(
   UserController.addProfileFields
 );
 
+router.get("/:id", auth(), UserController.getUserById);
 
-
-router.get("/:id", UserController.getUserById);
 //!mine
 router.patch(
-  "/",
+  "/update-user",
   auth(),
   fileUploadHandler,
   validateRequest(UserValidation.updateUser),
   UserController.updateUserByToken
 );
+
+//!mine
+router.patch(
+  "/update-profile",
+  auth(),
+  fileUploadHandler,
+  validateRequest(UserValidation.updateProfileFields),
+  UserController.updateProfileByToken
+);
+
+//!mine
+router.delete(
+  "/profile/image/:imageIndex",
+  auth(),
+  UserController.deleteProfileImage
+);
+
 router.patch(
   "/:id/status",
   validateRequest(UserValidation.updateUserActivationStatus),
@@ -84,7 +94,7 @@ router.post(
   validateRequest(UserValidation.verifyOTP),
   UserController.verifyOTPAndLogin
 );
-
+//!mine
 router.delete("/delete", auth(), UserController.changeUserStatus);
 
 export const UserRoutes: Router = router;

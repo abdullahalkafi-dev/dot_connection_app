@@ -4,17 +4,7 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { ProfileServices } from "./profile.service";
 
-const createProfile = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user._id;
-  const profile = await ProfileServices.createProfile(userId, req.body);
 
-  sendResponse(res, {
-    statusCode: StatusCodes.CREATED,
-    success: true,
-    message: "Profile created successfully",
-    data: profile,
-  });
-});
 
 const getAllProfiles = catchAsync(async (req: Request, res: Response) => {
   const profilesRes = await ProfileServices.getAllProfiles(req.query);
@@ -51,29 +41,9 @@ const getMyProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const updateProfile = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user._id;
-  const profile = await ProfileServices.updateProfile(userId, req.body);
 
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Profile updated successfully",
-    data: profile,
-  });
-});
 
-const deleteProfile = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user._id;
-  await ProfileServices.deleteProfile(userId);
 
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Profile deleted successfully",
-    data: null,
-  });
-});
 
 // Search profiles
 const searchProfiles = catchAsync(async (req: Request, res: Response) => {
@@ -102,12 +72,9 @@ const updatePreferences = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const ProfileController = {
-  createProfile,
   getAllProfiles,
   getProfileByUserId,
   getMyProfile,
-  updateProfile,
-  deleteProfile,
   searchProfiles,
   updatePreferences,
 };

@@ -27,32 +27,6 @@ const createUser = z.object({
     .strict(),
 });
 
-const updateUserProfile = z.object({
-  body: z
-    .object({
-      firstName: z
-        .string()
-        .min(2, "First name is required")
-        .max(50, "First name cannot exceed 50 characters")
-        .trim()
-        .regex(/^[A-Za-z\s.'-]+$/, "First name contains invalid characters")
-        .optional(),
-      lastName: z
-        .string()
-        .min(2, "Last name is required")
-        .max(50, "Last name cannot exceed 50 characters")
-        .trim()
-        .regex(/^[A-Za-z\s.'-]+$/, "Last name contains invalid characters")
-        .optional(),
-      phoneNumber: z.string().optional(),
-      address: z.string().optional(),
-      dateOfBirth: z.string().or(z.date()).optional(),
-      image: z.string().optional(),
-      pushNotification: z.boolean().optional(),
-    })
-    .strict(),
-});
-
 const loginRequest = z.object({
   body: z
     .object({
@@ -198,6 +172,50 @@ const addProfileFields = z.object({
     })
     .strict(),
 });
+const updateProfileFields = z.object({
+  data: z
+    .object({
+      location: locationSchema,
+      gender: z.string().min(1, "Gender is required").optional(),
+      interestedIn: z.string().min(1, "Interested in is required").optional(),
+      height: z.number().min(1, "Height is required").optional(),
+      interests: z
+        .array(
+          z.enum(Object.values(PROFILE_INTERESTS) as [string, ...string[]])
+        )
+        .max(11, "Cannot have more than 11 interests")
+        .optional(),
+      lookingFor: z.string().min(1, "Looking for is required").optional(),
+      ageRangeMin: z.number().min(14, "Minimum age must be 14").optional(),
+      ageRangeMax: z
+        .number()
+        .max(130, "Maximum age cannot exceed 130")
+        .optional(),
+      maxDistance: z
+        .number()
+        .min(1, "Maximum distance must be at least 1")
+        .optional(),
+      hometown: z.string().min(1, "Hometown is required").optional(),
+      workplace: z.string().min(1, "Workplace is required").optional(),
+      jobTitle: z.string().min(1, "Job title is required").optional(),
+      school: z.string().min(1, "School is required").optional(),
+      studyLevel: z
+        .enum(Object.values(PROFILE_STUDY_LEVEL) as [string, ...string[]])
+        .optional(),
+      religious: z
+        .enum(Object.values(PROFILE_RELIGION) as [string, ...string[]])
+        .optional(),
+      smokingStatus: z
+        .enum(Object.values(PROFILE_SMOKING_STATUS) as [string, ...string[]])
+        .optional(),
+      drinkingStatus: z
+        .enum(Object.values(PROFILE_DRINKING_STATUS) as [string, ...string[]])
+        .optional(),
+      bio: z.string().min(1, "Bio is required").optional(),
+    })
+    .strict(),
+
+});
 
 export const UserValidation = {
   createUser,
@@ -207,7 +225,7 @@ export const UserValidation = {
   loginRequest,
   verifyOTP,
   signin,
-  updateUserProfile,
   addUserFields,
   addProfileFields,
+  updateProfileFields,
 };

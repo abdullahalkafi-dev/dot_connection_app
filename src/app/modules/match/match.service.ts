@@ -23,7 +23,8 @@ const getPotentialMatches = async (
     User.find({
       _id: { $nin: interactedUserIds },
       verified: true,
-      allFieldsFilled: true,
+      allProfileFieldsFilled: true,
+      allUserFieldsFilled: true,
       status: "active"
     }),
     query
@@ -47,7 +48,7 @@ const performAction = async (
 ): Promise<{ message: string; isMatch?: boolean; connectionRequest?: TConnectionRequest }> => {
   // Check if target user exists and is valid for matching
   const targetUser = await User.findById(toUserId);
-  if (!targetUser || !targetUser.verified || !targetUser.allFieldsFilled) {
+  if (!targetUser || !targetUser.verified || !targetUser.allUserFieldsFilled || !targetUser.allProfileFieldsFilled || targetUser.status !== "active") {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found or not available for matching");
   }
 
@@ -226,13 +227,11 @@ const getUserLocation = async (userId: string): Promise<any> => {
       firstName: user.firstName,
       lastName: user.lastName,
       image: user.image,
-      address: user.address,
     },
     // You would add actual coordinates here from profile
     location: {
       latitude: null,
       longitude: null,
-      address: user.address,
     }
   };
 };

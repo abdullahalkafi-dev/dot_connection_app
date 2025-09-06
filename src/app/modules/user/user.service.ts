@@ -10,9 +10,8 @@ import { emailHelper } from "../../../mail/emailHelper";
 import { jwtHelper } from "../../../helpers/jwtHelper";
 import config from "../../../config";
 import { Profile } from "../profile/profile.model";
-
-
-
+import unlinkFile from "../../../shared/unlinkFile";
+import { TProfile } from "../profile/profile.interface";
 
 const getUserById = async (
   id: string
@@ -150,7 +149,11 @@ const sendOTPForLogin = async (email: string) => {
   };
 };
 
-// Verify OTP and login
+// Request new OTP (resend)
+const resendOTP = async (email: string) => {
+  return await sendOTPForLogin(email);
+};
+//!mine
 const verifyOTPAndLogin = async (email: string, otp: string) => {
   const user = await User.isExistUserByEmail(email);
   if (!user) {
@@ -226,67 +229,7 @@ const verifyOTPAndLogin = async (email: string, otp: string) => {
     refreshToken,
   };
 };
-
-// Request new OTP (resend)
-const resendOTP = async (email: string) => {
-  return await sendOTPForLogin(email);
-};
-
-// Check if all required fields are filled
-const checkAllFieldsFilled = (user: TUser): boolean => {
-  const requiredFields = [
-    user.firstName,
-    user.lastName,
-    user.phoneNumber,
-    user.dateOfBirth,
-    user.address,
-  ];
-
-  return requiredFields.every(
-    (field) => field && field.toString().trim().length > 0
-  );
-};
-
-// Update user profile and check completeness
-const updateUserProfile = async (
-  userId: string,
-  updateData: Partial<TUser>
-): Promise<TUser> => {
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
-  }
-
-  // Update user data
-  const updatedUser = await User.findByIdAndUpdate(
-    userId,
-    { $set: updateData },
-    { new: true, runValidators: true }
-  );
-  console.log(updatedUser);
-
-  if (!updatedUser) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "User update failed");
-  }
-
-  // Check if all fields are filled and update allFieldsFilled flag
-  const allFieldsFilled = checkAllFieldsFilled(updatedUser);
-
-  if (allFieldsFilled !== updatedUser.allFieldsFilled) {
-    await User.findByIdAndUpdate(userId, {
-      $set: { allFieldsFilled },
-    });
-    updatedUser.allFieldsFilled = allFieldsFilled;
-  }
-
-  // Update cache
-  if (updatedUser._id) {
-    await UserCacheManage.updateUserCache(updatedUser._id.toString());
-  }
-
-  return updatedUser;
-};
-//!!  admin routes
+//?  admin routes
 const getAllUsers = async (
   query: Record<string, unknown>
 ): Promise<TReturnUser.getAllUser> => {
@@ -305,9 +248,7 @@ const getAllUsers = async (
   await UserCacheManage.setCacheListWithQuery(query, { result, meta });
   return { result, meta };
 };
-
-
-//! made by mine
+//!mine
 const createUser = async (user: TUser): Promise<{ message: string }> => {
   let message = "";
   // Check if user exists
@@ -361,6 +302,7 @@ const getMe = async (
 
   return user;
 };
+//!mine
 const addUserFields = async (userId: string, fields: Partial<TUser>) => {
   // Check if all required user fields are provided
   const requiredUserFields = ["firstName", "lastName", "dateOfBirth"];
@@ -389,7 +331,7 @@ const addUserFields = async (userId: string, fields: Partial<TUser>) => {
 
   return user;
 };
-
+//!mine
 const addProfileFields = async (userId: string, fields: Partial<TUser>) => {
   // Check if all required profile fields are provided
   const requiredProfileFields = [
@@ -446,28 +388,96 @@ const addProfileFields = async (userId: string, fields: Partial<TUser>) => {
   }
   return user;
 };
-
+//!mine
 const updateUserByToken = async (
   id: string,
   updateData: Partial<TReturnUser.updateUser>
 ): Promise<Partial<TReturnUser.updateUser>> => {
-  // console.log(updateData,"updateData");
-  
-  const user = await User.findByIdAndUpdate(id, updateData, {
+  const user = await User.findById(id);
+
+  if (updateData.image && user?.image) {
+    unlinkFile(user.image);
+  }
+  const updatedUser = await User.findByIdAndUpdate(id, updateData, {
     new: true,
   });
-  if (!user) {
+  if (!updatedUser) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
-  //remove cache
-  await UserCacheManage.updateUserCache(id);
+  return updatedUser;
+};
+//!mine
+const updateProfileByToken = async (userId: string, updateData: Partial<TProfile & { newPhotos?: string[] }>) => {
+  const profile = await Profile.findOne({ userId });
+  if (!profile) {
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      "Profile not found for this user"
+    );
+  }
 
-  //set new cache
-  UserCacheManage.setCacheSingleUser(id, user);
-  return user;
+  // Handle multiple image uploads - append new images to existing ones
+  if (updateData.newPhotos && updateData.newPhotos.length > 0) {
+    const existingPhotos = profile.photos || [];
+    updateData.photos = [...existingPhotos, ...updateData.newPhotos];
+  }
+  
+  // Remove newPhotos from updateData as it's not part of the schema
+  delete updateData.newPhotos;
+
+  const updatedProfile = await Profile.findByIdAndUpdate(
+    profile._id,
+    { $set: updateData },
+    { new: true, runValidators: true }
+  ).populate({
+    path: "userId",
+    select: "-authentication",
+  });
+  if (!updatedProfile) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "Profile update failed");
+  }
+
+  return updatedProfile;
 };
 
+const deleteProfileImage = async (userId: string, imageIndex: number) => {
+  const profile = await Profile.findOne({ userId });
+  if (!profile) {
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      "Profile not found for this user"
+    );
+  }
 
+  if (!profile.photos || !Array.isArray(profile.photos)) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "No photos found in profile");
+  }
+
+  if (imageIndex < 0 || imageIndex >= profile.photos.length) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "Invalid image index");
+  }
+
+  // Remove the image at the specified index
+  const updatedPhotos = profile.photos.filter((_, index) => index !== imageIndex);
+  
+  const updatedProfile = await Profile.findByIdAndUpdate(
+    profile._id,
+    { photos: updatedPhotos },
+    { new: true, runValidators: true }
+  ).populate({
+    path: "userId",
+    select: "-authentication",
+  });
+  if(updatedProfile && profile.photos[imageIndex]){
+    unlinkFile(profile.photos[imageIndex]);
+  }
+
+  if (!updatedProfile) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "Failed to delete image");
+  }
+
+  return updatedProfile;
+};
 
 export const UserServices = {
   createUser,
@@ -482,9 +492,9 @@ export const UserServices = {
   sendOTPForLogin,
   verifyOTPAndLogin,
   resendOTP,
-  updateUserProfile,
-  checkAllFieldsFilled,
-  //mine
+
   addUserFields,
   addProfileFields,
+  updateProfileByToken,
+  deleteProfileImage
 };
