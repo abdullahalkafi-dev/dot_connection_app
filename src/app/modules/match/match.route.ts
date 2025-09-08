@@ -58,12 +58,4 @@ router.get(
   MatchController.getSentRequests
 );
 
-// Get user location for map view
-router.get(
-  "/location/:userId",
-  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
-  validateRequest(MatchValidation.getUserLocation),
-  MatchController.getUserLocation
-);
-
 export const MatchRoutes: Router = router;

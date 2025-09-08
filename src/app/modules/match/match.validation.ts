@@ -3,8 +3,8 @@ import { z } from "zod";
 const performAction = z.object({
   body: z.object({
     toUserId: z.string().min(1, "User ID is required"),
-    action: z.enum(["skip", "love", "map"], {
-      errorMap: () => ({ message: "Action must be skip, love, or map" }),
+    action: z.enum(["skip", "love"], {
+      errorMap: () => ({ message: "Action must be skip or love" }),
     }),
   }).strict(),
 });
@@ -17,14 +17,7 @@ const respondToRequest = z.object({
   }).strict(),
 });
 
-const getUserLocation = z.object({
-  params: z.object({
-    userId: z.string().min(1, "User ID is required"),
-  }),
-});
-
 export const MatchValidation = {
   performAction,
   respondToRequest,
-  getUserLocation,
 };

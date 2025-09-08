@@ -35,6 +35,7 @@ const matchSchema = new Schema<TMatch, MatchModal>(
 
 // Indexes
 matchSchema.index({ fromUserId: 1, toUserId: 1 }, { unique: true });
+matchSchema.index({ fromUserId: 1 });
 matchSchema.index({ fromUserId: 1, action: 1 });
 matchSchema.index({ toUserId: 1, action: 1 });
 matchSchema.index({ createdAt: -1 });

@@ -6,7 +6,7 @@ import sendResponse from "../../../shared/sendResponse";
 
 // Get potential matches for swiping
 const getPotentialMatches = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const matchesRes = await MatchServices.getPotentialMatches(userId, req.query);
   
   sendResponse(res, {
@@ -20,7 +20,7 @@ const getPotentialMatches = catchAsync(async (req: Request, res: Response) => {
 
 // Perform action on a user (skip, love, map)
 const performAction = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const { toUserId, action } = req.body;
   
   const result = await MatchServices.performAction(userId, toUserId, action);
@@ -35,7 +35,7 @@ const performAction = catchAsync(async (req: Request, res: Response) => {
 
 // Get connection requests received
 const getConnectionRequests = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const requestsRes = await MatchServices.getConnectionRequests(userId, req.query);
   
   sendResponse(res, {
@@ -49,7 +49,7 @@ const getConnectionRequests = catchAsync(async (req: Request, res: Response) => 
 
 // Respond to connection request
 const respondToRequest = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const { requestId } = req.params;
   const { action } = req.body;
   
@@ -65,7 +65,7 @@ const respondToRequest = catchAsync(async (req: Request, res: Response) => {
 
 // Get user's connections (matches)
 const getConnections = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const connectionsRes = await MatchServices.getConnections(userId, req.query);
   
   sendResponse(res, {
@@ -79,7 +79,7 @@ const getConnections = catchAsync(async (req: Request, res: Response) => {
 
 // Get match history
 const getMatchHistory = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const historyRes = await MatchServices.getMatchHistory(userId, req.query);
   
   sendResponse(res, {
@@ -93,7 +93,7 @@ const getMatchHistory = catchAsync(async (req: Request, res: Response) => {
 
 // Get sent requests
 const getSentRequests = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const userId = req.user._id;
   const requestsRes = await MatchServices.getSentRequests(userId, req.query);
   
   sendResponse(res, {
@@ -105,19 +105,6 @@ const getSentRequests = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// Get user location for map view
-const getUserLocation = catchAsync(async (req: Request, res: Response) => {
-  const { userId } = req.params;
-  const location = await MatchServices.getUserLocation(userId);
-  
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "User location retrieved successfully",
-    data: location,
-  });
-});
-
 export const MatchController = {
   getPotentialMatches,
   performAction,
@@ -126,5 +113,4 @@ export const MatchController = {
   getConnections,
   getMatchHistory,
   getSentRequests,
-  getUserLocation,
 };

@@ -1,6 +1,6 @@
 import { Model, Types } from "mongoose";
 
-export type TMatchAction = "skip" | "love" | "map";
+export type TMatchAction = "skip" | "love";
 
 export type TMatch = {
   _id?: string;
