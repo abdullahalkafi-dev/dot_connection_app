@@ -92,13 +92,15 @@ const getPotentialMatches = async (
   const totalCountPipeline = [...aggregationPipeline, { $count: "total" }];
   const totalResult = await User.aggregate(totalCountPipeline);
   const total = totalResult[0]?.total || 0;
-  
+
   // Calculate total pages
   const totalPage = Math.ceil(total / limit);
-  
+
   // Validate page number - if page is beyond available pages, return empty results
   if (page > totalPage && total > 0) {
-    console.log(`Requested page ${page} is beyond available pages (${totalPage}). Returning empty results.`);
+    console.log(
+      `Requested page ${page} is beyond available pages (${totalPage}). Returning empty results.`
+    );
     return {
       result: [],
       meta: {
@@ -118,8 +120,10 @@ const getPotentialMatches = async (
 
   // Execute the aggregation
   const result = await User.aggregate(aggregationPipeline);
-  console.log(`Page ${page}: Found ${result.length} results out of ${total} total`);
-  
+  console.log(
+    `Page ${page}: Found ${result.length} results out of ${total} total`
+  );
+
   const meta = {
     page,
     limit,
@@ -183,20 +187,31 @@ const performAction = async (
     message: `Action '${action}' performed successfully`,
   };
 
-  // If action is 'love', check for mutual love and create connection request
+  // If action is 'love', check for mutual love and handle accordingly
   if (action === "love") {
     const isMutualLove = await Match.checkMutualLove(fromUserId, toUserId);
 
     if (isMutualLove) {
-      // Create connection (they matched!)
-      await Connection.create({
+      // AUTO-ACCEPT: Create connection immediately (they matched!)
+      const connection = await Connection.create({
         userIds: [fromUserId, toUserId],
       });
 
+      // Auto-accept any existing pending request
+      await ConnectionRequest.findOneAndUpdate(
+        { 
+          fromUserId: toUserId, 
+          toUserId: fromUserId, 
+          status: "pending" 
+        },
+        { status: "accepted" }
+      );
+
       responseData.isMatch = true;
-      responseData.message = "It's a match! 🎉";
+      responseData.connection = connection;
+      responseData.message = "It's a match! 🎉 Connection created automatically";
     } else {
-      // Create connection request
+      // Create connection request (one-sided love)
       const connectionRequest = await ConnectionRequest.create({
         fromUserId,
         toUserId,

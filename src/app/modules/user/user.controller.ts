@@ -44,6 +44,28 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
     data: user,
   });
 });
+
+//!mine - Get nearby users within specified radius
+const getNearbyUsers = catchAsync(async (req: Request, res: Response) => {
+  const { radius = "25" } = req.query as {
+    radius?: string;
+  };
+  
+  const currentUserId = req.user._id;
+  const searchRadius = parseFloat(radius);
+
+  const result = await UserServices.getNearbyUsers(
+    currentUserId,
+    searchRadius
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Nearby users retrieved successfully",
+    data: result,
+  });
+});
 const updateUser = catchAsync(async (req: Request, res: Response) => {
   const userdata = JSON.parse(req.body.data);
   let image = null;
@@ -286,6 +308,7 @@ export const UserController = {
   updateUserActivationStatus,
   updateUserRole,
   getMe,
+  getNearbyUsers,
   updateUserByToken,
   changeUserStatus,
   signin,

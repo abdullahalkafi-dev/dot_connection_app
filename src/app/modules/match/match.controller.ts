@@ -24,12 +24,13 @@ const performAction = catchAsync(async (req: Request, res: Response) => {
   const { toUserId, action } = req.body;
   
   const result = await MatchServices.performAction(userId, toUserId, action);
-  
+  console.log(result);
+  const { message, ...data } = result;
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: result.message,
-    data: result,
+    message,
+    data,
   });
 });
 

@@ -28,6 +28,15 @@ router.get(
 //!mine
 router.get("/getme", auth(), UserController.getMe);
 
+
+//!mine - Get nearby users within specified radius (default 25km)
+router.get(
+  "/nearby",
+  auth(),
+  validateRequest(UserValidation.getNearbyUsers),
+  UserController.getNearbyUsers
+);
+
 //!mine
 router.put(
   "/add-user-fields",

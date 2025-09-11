@@ -8,13 +8,16 @@ import cacheWarmer from './redis/cacheWarmer';
 import app from './app';
 import config from './config';
 import seedSuperAdmin from './DB';
+import { setupSocket } from './socket/socket';
 
 //uncaught exception
 process.on('uncaughtException', error => {
   errorLogger.error('UnhandledException Detected', error, error);
   process.exit(1);
 });
+
 export const server = http.createServer(app);
+
 async function main() {
   try {
     await  mongoose.connect(config.database_url as string, {
@@ -43,6 +46,11 @@ async function main() {
       // Schedule cache warming
       cacheWarmer.scheduleWarmup();
       logger.info(colors.magenta('🔥 Cache warming scheduled'));
+
+      // Initialize Socket.IO
+      setupSocket(server);
+      logger.info(colors.blue('🔌 Socket.IO initialized successfully'));
+      
     server.listen(port, config.ip_address as string, () => {
       logger.info(
         colors.yellow(`♻️  Application listening ${config.ip_address} on port:${config.port}`)

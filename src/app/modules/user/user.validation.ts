@@ -217,6 +217,14 @@ const updateProfileFields = z.object({
 
 });
 
+const getNearbyUsers = z.object({
+  query: z.object({
+    radius: z.string().optional().refine((val) => !val || (!isNaN(Number(val)) && Number(val) > 0), {
+      message: "Radius must be a positive number"
+    })
+  })
+});
+
 export const UserValidation = {
   createUser,
   updateUser,
@@ -228,4 +236,5 @@ export const UserValidation = {
   addUserFields,
   addProfileFields,
   updateProfileFields,
+  getNearbyUsers,
 };

@@ -4,6 +4,7 @@ import AppError from "../../errors/AppError";
 import UserCacheManage from "./user.cacheManage";
 import { TReturnUser, TUser } from "./user.interface";
 import { User } from "./user.model";
+import mongoose from "mongoose";
 
 import { emailTemplate } from "../../../mail/emailTemplate";
 import { emailHelper } from "../../../mail/emailHelper";
@@ -16,16 +17,17 @@ import { TProfile } from "../profile/profile.interface";
 const getUserById = async (
   id: string
 ): Promise<Partial<TReturnUser.getSingleUser>> => {
-  // First, try to retrieve the user from cache.
-  const cachedUser = await UserCacheManage.getCacheSingleUser(id);
-  if (cachedUser) return cachedUser;
   // If not cached, query the database using lean with virtuals enabled.
-  const user = await User.findById(id);
+  const user = await User.findById(id).lean();
+  const profile = await Profile.findOne({ userId: id }).lean();
+  if (profile) {
+    (user as any).profile = profile || null;
+  }
+
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
-  // Cache the freshly retrieved user data.
-  await UserCacheManage.setCacheSingleUser(id, user);
+
   return user;
 };
 
@@ -407,7 +409,10 @@ const updateUserByToken = async (
   return updatedUser;
 };
 //!mine
-const updateProfileByToken = async (userId: string, updateData: Partial<TProfile & { newPhotos?: string[] }>) => {
+const updateProfileByToken = async (
+  userId: string,
+  updateData: Partial<TProfile & { newPhotos?: string[] }>
+) => {
   const profile = await Profile.findOne({ userId });
   if (!profile) {
     throw new AppError(
@@ -421,7 +426,7 @@ const updateProfileByToken = async (userId: string, updateData: Partial<TProfile
     const existingPhotos = profile.photos || [];
     updateData.photos = [...existingPhotos, ...updateData.newPhotos];
   }
-  
+
   // Remove newPhotos from updateData as it's not part of the schema
   delete updateData.newPhotos;
 
@@ -458,8 +463,10 @@ const deleteProfileImage = async (userId: string, imageIndex: number) => {
   }
 
   // Remove the image at the specified index
-  const updatedPhotos = profile.photos.filter((_, index) => index !== imageIndex);
-  
+  const updatedPhotos = profile.photos.filter(
+    (_, index) => index !== imageIndex
+  );
+
   const updatedProfile = await Profile.findByIdAndUpdate(
     profile._id,
     { photos: updatedPhotos },
@@ -468,7 +475,7 @@ const deleteProfileImage = async (userId: string, imageIndex: number) => {
     path: "userId",
     select: "-authentication",
   });
-  if(updatedProfile && profile.photos[imageIndex]){
+  if (updatedProfile && profile.photos[imageIndex]) {
     unlinkFile(profile.photos[imageIndex]);
   }
 
@@ -479,6 +486,93 @@ const deleteProfileImage = async (userId: string, imageIndex: number) => {
   return updatedProfile;
 };
 
+//!mine - Get nearby users within specified radius
+const getNearbyUsers = async (currentUserId: string, radiusKm: number = 25) => {
+  // First get the current user's profile with location
+  const currentUserProfile = await Profile.findOne({
+    userId: currentUserId,
+  }).select("location");
+
+  if (!currentUserProfile || !currentUserProfile.location) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "User location not found. Please update your location first."
+    );
+  }
+
+  const { coordinates } = currentUserProfile.location;
+  const [longitude, latitude] = coordinates;
+
+  // Convert radius from kilometers to meters for MongoDB
+  const radiusMeters = radiusKm * 1000;
+
+  const nearbyUsers = await Profile.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        },
+        distanceField: "distance",
+        maxDistance: radiusMeters,
+        spherical: true,
+        query: {
+          userId: { $ne: new mongoose.Types.ObjectId(currentUserId) }, // Exclude current user
+          location: { $exists: true }, // Only users with location
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    {
+      $unwind: "$user",
+    },
+    {
+      $match: {
+        "user.status": "active", // Only active users
+      },
+    },
+    {
+      $project: {
+        userId: "$userId",
+        distance: { $round: ["$distance", 0] }, // Distance in meters, rounded
+        distanceKm: { $round: [{ $divide: ["$distance", 1000] }, 2] }, // Distance in km
+        image: { $arrayElemAt: ["$photos", 0] }, // First profile image
+        location: {
+          latitude: { $arrayElemAt: ["$location.coordinates", 1] },
+          longitude: { $arrayElemAt: ["$location.coordinates", 0] },
+        },
+        name: {
+          $concat: [
+            { $ifNull: ["$user.firstName", ""] },
+            " ",
+            { $ifNull: ["$user.lastName", ""] },
+          ],
+        },
+        age: {
+          $floor: {
+            $divide: [
+              { $subtract: [new Date(), "$user.dateOfBirth"] },
+              365.25 * 24 * 60 * 60 * 1000,
+            ],
+          },
+        },
+      },
+    },
+    {
+      $sort: { distance: 1 }, // Sort by distance (closest first)
+    },
+  ]);
+
+  return nearbyUsers;
+};
+
 export const UserServices = {
   createUser,
   getAllUsers,
@@ -487,14 +581,14 @@ export const UserServices = {
   updateUserActivationStatus,
   updateUserRole,
   getMe,
+  getNearbyUsers,
   updateUserByToken,
   changeUserStatus,
   sendOTPForLogin,
   verifyOTPAndLogin,
   resendOTP,
-
   addUserFields,
   addProfileFields,
   updateProfileByToken,
-  deleteProfileImage
+  deleteProfileImage,
 };
