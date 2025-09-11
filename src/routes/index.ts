@@ -4,6 +4,8 @@ import { ProfileRoutes } from "../app/modules/profile/profile.route";
 import { MatchRoutes } from "../app/modules/match/match.route";
 import { ChatRoutes } from "../app/modules/chat/chat.route";
 import { MessageRoutes } from "../app/modules/message/message.route";
+import { BlockRoutes } from "../app/modules/block/block.route";
+import { SettingRoutes } from "../app/modules/setting/setting.route";
 
 const router: Router = express.Router();
 
@@ -27,6 +29,14 @@ const apiRoutes = [
   {
     path: "/message",
     route: MessageRoutes,
+  },
+  {
+    path: "/block",
+    route: BlockRoutes,
+  },
+  {
+    path: "/setting",
+    route: SettingRoutes,
   },
 ];
 

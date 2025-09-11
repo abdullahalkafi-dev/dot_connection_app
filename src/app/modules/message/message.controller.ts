@@ -5,6 +5,7 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { MessageServices } from "./message.service";
 import { Connection } from "../match/match.model";
+import { Block } from "../block/block.model";
 import { socketService } from "../../../shared/socketService";
 import AppError from "../../errors/AppError";
 
@@ -12,6 +13,15 @@ const getChatMessages = catchAsync(async (req: Request, res: Response) => {
   const { userId: otherUserId } = req.params;
   const currentUserId = req.user?._id;
   const { page = "1", limit = "50" } = req.query;
+
+  // Check if users are blocking each other
+  const areBlocking = await Block.areUsersBlocking(currentUserId, otherUserId);
+  if (areBlocking) {
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      "Cannot access chat with blocked user"
+    );
+  }
 
   // Check if users have mutual connection
   const connection = await Connection.findOne({
@@ -81,6 +91,20 @@ const createMessageWithImages = catchAsync(
       message: messageData.message,
       images: images,
     };
+
+    // Check if users are blocking each other
+    const areBlocking = await Block.areUsersBlocking(
+      message.sender.toString(),
+      message.receiver.toString()
+    );
+    if (areBlocking) {
+      return sendResponse(res, {
+        statusCode: StatusCodes.FORBIDDEN,
+        success: false,
+        message: "Cannot send message to blocked user",
+        data: null,
+      });
+    }
 
     // Check if users have mutual connection
     const connection = await Connection.findOne({
@@ -159,6 +183,20 @@ const createMessageWithAudio = catchAsync(
       receiver: new Types.ObjectId(messageData.receiverId),
       audio: audio,
     };
+
+    // Check if users are blocking each other
+    const areBlocking = await Block.areUsersBlocking(
+      message.sender.toString(),
+      message.receiver.toString()
+    );
+    if (areBlocking) {
+      return sendResponse(res, {
+        statusCode: StatusCodes.FORBIDDEN,
+        success: false,
+        message: "Cannot send message to blocked user",
+        data: null,
+      });
+    }
 
     // Check if users have mutual connection
     const connection = await Connection.findOne({

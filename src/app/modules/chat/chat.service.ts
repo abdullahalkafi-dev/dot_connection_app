@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { Chat } from "./chat.model";
 import { Message } from "../message/message.model";
 import { Connection } from "../match/match.model";
+import { Block } from "../block/block.model";
 import { TChat } from "./chat.interface";
 
 interface ChatListItem {
@@ -35,6 +36,14 @@ const getUserChatList = async (userId: string): Promise<ChatListItem[]> => {
     );
     
     if (otherUser) {
+      // Check if users are blocking each other
+      const areBlocking = await Block.areUsersBlocking(userId, otherUser._id.toString());
+      
+      // Skip this chat if users are blocking each other
+      if (areBlocking) {
+        continue;
+      }
+      
       // Get last message between users
       const lastMessage = await Message.getLastMessage(userId, otherUser._id.toString());
       
