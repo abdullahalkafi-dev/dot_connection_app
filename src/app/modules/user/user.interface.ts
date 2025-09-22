@@ -7,7 +7,6 @@ export type TUser = {
   lastName?: string;
   email: string;
   image?: string;
-
   role?: keyof typeof USER_ROLES;
   phoneNumber?: string;
   fcmToken?: string;
@@ -43,12 +42,10 @@ export namespace TReturnUser {
     totalPage: number;
     total: number;
   };
-
   export type getAllUser = {
     result: TUser[];
     meta?: Meta;
   };
-
   export type getSingleUser = TUser;
   export type updateUser = TUser;
   export type updateUserActivationStatus = TUser;

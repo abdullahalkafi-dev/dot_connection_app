@@ -3,12 +3,12 @@ import mongoose from 'mongoose';
 import http from 'http';
 import { errorLogger, logger } from './shared/logger';
 import redisClient from './redis/redisClient';
-import cacheMonitor from './redis/cacheMonitor';
-import cacheWarmer from './redis/cacheWarmer';
+
 import app from './app';
 import config from './config';
 import seedSuperAdmin from './DB';
 import { setupSocket } from './socket/socket';
+import { createDatabaseIndexes } from './DB/indexes';
 
 //uncaught exception
 process.on('uncaughtException', error => {
@@ -30,6 +30,9 @@ async function main() {
 
     logger.info(colors.green('🚀 Database connected successfully'));
 
+    // Create database indexes for optimal performance
+    await createDatabaseIndexes();
+
     const port =
       typeof config.port === 'number' ? config.port : Number(config.port);
       console.log(port, 'port');
@@ -38,22 +41,17 @@ async function main() {
       await redisClient.connect();
       logger.info(colors.cyan('📡 Redis connected successfully'));
       
-      // Start cache monitoring
-      cacheMonitor.startHealthMonitoring(30000); // Check every 30 seconds
-      logger.info(colors.yellow('📊 Cache monitoring started'));
-      
 
-      // Schedule cache warming
-      cacheWarmer.scheduleWarmup();
-      logger.info(colors.magenta('🔥 Cache warming scheduled'));
 
       // Initialize Socket.IO
       setupSocket(server);
       logger.info(colors.blue('🔌 Socket.IO initialized successfully'));
       
-    server.listen(port, config.ip_address as string, () => {
+    // For Docker: bind to 0.0.0.0 to allow nginx to reach the containers
+    // For local development: can bind to specific IP
+    server.listen(port, '0.0.0.0' as string, () => {
       logger.info(
-        colors.yellow(`♻️  Application listening ${config.ip_address} on port:${config.port}`)
+        colors.yellow(`♻️  Application listening on '0.0.0.0' port:'${port}'`)
       );
     });
     
@@ -85,7 +83,6 @@ process.on('SIGTERM',async () => {
   if (server) {
     server.close(()=>{
       logger.info('HTTP server closed.');
-      //     // Close DB or Redis here if needed
           process.exit(0);
     });
   }

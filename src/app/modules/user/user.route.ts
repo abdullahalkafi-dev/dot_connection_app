@@ -6,6 +6,7 @@ import fileUploadHandler from "../../middlewares/fileUploadHandler";
 import auth from "../../middlewares/auth";
 import { USER_ROLES } from "./user.constant";
 import { ProfileValidations } from "../profile/profile.validation";
+import { authLimiter, strictLimiter } from "../../middlewares/security";
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ const router = express.Router();
 //!mine
 router.post(
   "/",
+  authLimiter, // Rate limit auth attempts
   validateRequest(UserValidation.createUser),
   UserController.createUser
 );

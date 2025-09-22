@@ -1,24 +1,9 @@
 // cacheService.ts
 import redisClient from "./redisClient";
 
-// Cache metrics for monitoring
-interface CacheMetrics {
-  hits: number;
-  misses: number;
-  sets: number;
-  deletes: number;
-  errors: number;
-}
+
 
 class CacheService {
-  private metrics: CacheMetrics = {
-    hits: 0,
-    misses: 0,
-    sets: 0,
-    deletes: 0,
-    errors: 0,
-  };
-
   private readonly COMPRESSION_THRESHOLD = 1024; // 1KB
   private readonly MAX_CACHE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -33,19 +18,21 @@ class CacheService {
       // Compress large objects (simple implementation)
       if (stringifiedValue.length > this.COMPRESSION_THRESHOLD) {
         // In production, use a proper compression library like snappy or lz4
-        console.log(`Large cache object detected: ${key} (${stringifiedValue.length} bytes)`);
+        console.log(
+          `Large cache object detected: ${key} (${stringifiedValue.length} bytes)`
+        );
       }
 
       // Check size limits
       if (stringifiedValue.length > this.MAX_CACHE_SIZE) {
-        console.warn(`Cache object too large, skipping: ${key} (${stringifiedValue.length} bytes)`);
+        console.warn(
+          `Cache object too large, skipping: ${key} (${stringifiedValue.length} bytes)`
+        );
         return;
       }
 
       await redisClient.set(key, stringifiedValue, expiryInSec);
-      this.metrics.sets++;
     } catch (error) {
-      this.metrics.errors++;
       console.error(`Cache set error for key ${key}:`, error);
       throw error;
     }
@@ -56,21 +43,18 @@ class CacheService {
       const startTime = Date.now();
       const data = await redisClient.get(key);
       const duration = Date.now() - startTime;
-      
+
       // Log slow operations
       if (duration > 100) {
         console.warn(`Slow cache get operation: ${key} took ${duration}ms`);
       }
-      
+
       if (data) {
-        this.metrics.hits++;
         return JSON.parse(data) as T;
       } else {
-        this.metrics.misses++;
         return null;
       }
     } catch (error) {
-      this.metrics.errors++;
       console.error(`Cache get error for key ${key}:`, error);
       return null; // Return null instead of throwing to prevent app crashes
     }
@@ -79,53 +63,49 @@ class CacheService {
   // Batch get method for multiple keys
   async getMultipleCache<T>(keys: string[]): Promise<Map<string, T | null>> {
     const result = new Map<string, T | null>();
-    
+
     if (keys.length === 0) return result;
-    
+
     try {
       const startTime = Date.now();
       const pipeline = redisClient.client.multi();
-      
+
       // Add all get operations to pipeline
-      keys.forEach(key => pipeline.get(key));
-      
+      keys.forEach((key) => pipeline.get(key));
+
       const results = await pipeline.exec();
       const duration = Date.now() - startTime;
-      
+
       if (duration > 100) {
-        console.warn(`Slow batch cache get: ${keys.length} keys took ${duration}ms`);
+        console.warn(
+          `Slow batch cache get: ${keys.length} keys took ${duration}ms`
+        );
       }
-      
+
       keys.forEach((key, index) => {
         const data = results?.[index];
-        if (data && typeof data === 'string') {
+        if (data && typeof data === "string") {
           try {
             result.set(key, JSON.parse(data) as T);
-            this.metrics.hits++;
           } catch {
             result.set(key, null);
-            this.metrics.misses++;
           }
         } else {
           result.set(key, null);
-          this.metrics.misses++;
         }
       });
-      
     } catch (error) {
-      console.error('Batch cache get error:', error);
-      keys.forEach(key => result.set(key, null));
+      console.error("Batch cache get error:", error);
+      keys.forEach((key) => result.set(key, null));
     }
-    
+
     return result;
   }
 
   async deleteCache(key: string): Promise<void> {
     try {
       await redisClient.delete(key);
-      this.metrics.deletes++;
     } catch (error) {
-      this.metrics.errors++;
       console.error(`Cache delete error for key ${key}:`, error);
       throw error;
     }
@@ -137,27 +117,25 @@ class CacheService {
       // Use SCAN instead of KEYS for production safety (non-blocking)
       const keys: string[] = [];
       let cursor = 0;
-      
+
       do {
         const reply = await redisClient.client.scan(cursor, {
           MATCH: pattern,
-          COUNT: 100
+          COUNT: 100,
         });
         cursor = reply.cursor;
         keys.push(...reply.keys);
       } while (cursor !== 0);
-      
+
       if (keys.length > 0) {
         // Delete in batches using pipeline to avoid blocking
         const batchSize = 100;
         for (let i = 0; i < keys.length; i += batchSize) {
           const batch = keys.slice(i, i + batchSize);
           const pipeline = redisClient.client.multi();
-          
-          batch.forEach(key => pipeline.del(key));
+
+          batch.forEach((key) => pipeline.del(key));
           await pipeline.exec();
-          
-          this.metrics.deletes += batch.length;
         }
       }
     } catch (error) {
@@ -169,60 +147,6 @@ class CacheService {
   // Health check
   async healthCheck(): Promise<boolean> {
     return await redisClient.healthCheck();
-  }
-
-  // Get cache metrics
-  getMetrics(): CacheMetrics {
-    return { ...this.metrics };
-  }
-
-  // Reset metrics
-  resetMetrics(): void {
-    this.metrics = {
-      hits: 0,
-      misses: 0,
-      sets: 0,
-      deletes: 0,
-      errors: 0,
-    };
-  }
-
-  // Get hit rate
-  getHitRate(): number {
-    const total = this.metrics.hits + this.metrics.misses;
-    return total > 0 ? (this.metrics.hits / total) * 100 : 0;
-  }
-
-  // Circuit breaker pattern for Redis failures
-  private circuitBreakerFailures = 0;
-  private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
-  private circuitBreakerOpen = false;
-
-  private async executeWithCircuitBreaker<T>(operation: () => Promise<T>): Promise<T | null> {
-    if (this.circuitBreakerOpen) {
-      console.warn('Circuit breaker is open, skipping Redis operation');
-      return null;
-    }
-
-    try {
-      const result = await operation();
-      this.circuitBreakerFailures = 0; // Reset on success
-      return result;
-    } catch (error) {
-      this.circuitBreakerFailures++;
-      if (this.circuitBreakerFailures >= this.CIRCUIT_BREAKER_THRESHOLD) {
-        this.circuitBreakerOpen = true;
-        console.error('Circuit breaker opened due to repeated Redis failures');
-
-        // Auto-reset circuit breaker after 30 seconds
-        setTimeout(() => {
-          this.circuitBreakerOpen = false;
-          this.circuitBreakerFailures = 0;
-          console.log('Circuit breaker reset');
-        }, 30000);
-      }
-      throw error;
-    }
   }
 }
 

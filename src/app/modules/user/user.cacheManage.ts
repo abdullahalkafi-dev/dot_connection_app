@@ -1,7 +1,6 @@
 // user.cacheManage.ts
 import cacheService from "../../../redis/cacheService";
 import fastCacheService from "../../../redis/fastCacheService";
-import cacheMonitor from "../../../redis/cacheMonitor";
 import { normalizeQuery } from "../../../util/normalizeQuery";
 import { TUser } from "./user.interface";
 
@@ -76,7 +75,7 @@ const UserCacheManage = {
       return null;
     } finally {
       const duration = Date.now() - startTime;
-      cacheMonitor.logOperation(`user:get:${userId}`, duration, success);
+    
     }
   },
 
@@ -98,7 +97,6 @@ const UserCacheManage = {
       console.warn('Error setting cached user:', error);
     } finally {
       const duration = Date.now() - startTime;
-      cacheMonitor.logOperation(`user:set:${userId}`, duration, success);
     }
   },
 

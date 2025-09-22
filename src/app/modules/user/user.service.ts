@@ -5,7 +5,6 @@ import UserCacheManage from "./user.cacheManage";
 import { TReturnUser, TUser } from "./user.interface";
 import { User } from "./user.model";
 import mongoose from "mongoose";
-
 import { emailTemplate } from "../../../mail/emailTemplate";
 import { emailHelper } from "../../../mail/emailHelper";
 import { jwtHelper } from "../../../helpers/jwtHelper";
@@ -17,6 +16,9 @@ import { TProfile } from "../profile/profile.interface";
 const getUserById = async (
   id: string
 ): Promise<Partial<TReturnUser.getSingleUser>> => {
+  // First check cache
+  const cached = await UserCacheManage.getCacheSingleUser(id);
+  if (cached) return cached;
   // If not cached, query the database using lean with virtuals enabled.
   const user = await User.findById(id).lean();
   const profile = await Profile.findOne({ userId: id }).lean();
@@ -27,6 +29,7 @@ const getUserById = async (
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
+  await UserCacheManage.setCacheSingleUser(id, user);
 
   return user;
 };
@@ -291,7 +294,8 @@ const getMe = async (
   if (!id) {
     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized");
   }
-
+  const cached = await UserCacheManage.getCacheSingleUser(id);
+  if (cached) return cached;
   const user = await User.findById(id).lean();
   const profile = await Profile.findOne({ userId: id }).lean();
   if (profile) {
@@ -301,7 +305,7 @@ const getMe = async (
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
-
+  await UserCacheManage.setCacheSingleUser(id, user);
   return user;
 };
 //!mine
