@@ -169,6 +169,17 @@ const addProfileFields = z.object({
         .enum(Object.values(PROFILE_DRINKING_STATUS) as [string, ...string[]])
         .optional(),
       bio: z.string().min(1, "Bio is required"),
+      hiddenFields: z.object({
+        gender: z.boolean().optional(),
+        hometown: z.boolean().optional(),
+        workplace: z.boolean().optional(),
+        jobTitle: z.boolean().optional(),
+        school: z.boolean().optional(),
+        studyLevel: z.boolean().optional(),
+        religious: z.boolean().optional(),
+        drinkingStatus: z.boolean().optional(),
+        smokingStatus: z.boolean().optional(),
+      }).optional(),
     })
     .strict(),
 });
@@ -251,6 +262,27 @@ const getNearbyUsers = z.object({
   })
 });
 
+const updateHiddenFields = z.object({
+  body: z.object({
+    hiddenFields: z.object({
+      gender: z.boolean().optional(),
+      hometown: z.boolean().optional(),
+      workplace: z.boolean().optional(),
+      jobTitle: z.boolean().optional(),
+      school: z.boolean().optional(),
+      studyLevel: z.boolean().optional(),
+      religious: z.boolean().optional(),
+      drinkingStatus: z.boolean().optional(),
+      smokingStatus: z.boolean().optional(),
+    }).refine((data) => {
+      // At least one field should be provided
+      return Object.keys(data).length > 0;
+    }, {
+      message: "At least one hidden field must be provided"
+    })
+  }).strict()
+});
+
 export const UserValidation = {
   createUser,
   updateUser,
@@ -263,4 +295,5 @@ export const UserValidation = {
   addProfileFields,
   updateProfileFields,
   getNearbyUsers,
+  updateHiddenFields,
 };

@@ -16,11 +16,17 @@ import { TProfile } from "../profile/profile.interface";
 const getUserById = async (
   id: string
 ): Promise<Partial<TReturnUser.getSingleUser>> => {
+  console.log(id);
   // First check cache
   const cached = await UserCacheManage.getCacheSingleUser(id);
-  if (cached) return cached;
+  if (cached) {
+    // Apply hidden fields filtering to cached data
+    return applyHiddenFieldsFilter(cached);
+  }
+
   // If not cached, query the database using lean with virtuals enabled.
   const user = await User.findById(id).lean();
+  console.log(user);
   const profile = await Profile.findOne({ userId: id }).lean();
   if (profile) {
     (user as any).profile = profile || null;
@@ -29,28 +35,40 @@ const getUserById = async (
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
+
   await UserCacheManage.setCacheSingleUser(id, user);
 
-  return user;
+  // Apply hidden fields filtering before returning
+  return applyHiddenFieldsFilter(user);
 };
 
-const updateUser = async (
-  id: string,
-  updateData: Partial<TReturnUser.updateUser>
-): Promise<Partial<TReturnUser.updateUser>> => {
-  const user = await User.findByIdAndUpdate(id, updateData, {
-    new: true,
-  });
-  if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+// Helper function to filter out hidden fields from user profile
+const applyHiddenFieldsFilter = (user: any) => {
+  if (!user.profile || !user.profile.hiddenFields) {
+    return user;
   }
-  //remove cache
-  await UserCacheManage.updateUserCache(id);
 
-  //set new cache
-  UserCacheManage.setCacheSingleUser(id, user);
-  return user;
+  const { hiddenFields } = user.profile;
+  const filteredUser = { ...user };
+
+  if (filteredUser.profile) {
+    filteredUser.profile = { ...filteredUser.profile };
+
+    // Remove fields that are marked as hidden
+    if (hiddenFields.gender) delete filteredUser.profile.gender;
+    if (hiddenFields.hometown) delete filteredUser.profile.hometown;
+    if (hiddenFields.workplace) delete filteredUser.profile.workplace;
+    if (hiddenFields.jobTitle) delete filteredUser.profile.jobTitle;
+    if (hiddenFields.school) delete filteredUser.profile.school;
+    if (hiddenFields.studyLevel) delete filteredUser.profile.studyLevel;
+    if (hiddenFields.religious) delete filteredUser.profile.religious;
+    if (hiddenFields.drinkingStatus) delete filteredUser.profile.drinkingStatus;
+    if (hiddenFields.smokingStatus) delete filteredUser.profile.smokingStatus;
+  }
+
+  return filteredUser;
 };
+
 
 const updateUserActivationStatus = async (
   id: string,
@@ -287,6 +305,7 @@ const createUser = async (user: TUser): Promise<{ message: string }> => {
   message = "User created successfully. Verification code sent to your email";
   return { message };
 };
+//!mine
 const getMe = async (
   id: string
 ): Promise<Partial<TReturnUser.getSingleUser>> => {
@@ -294,7 +313,7 @@ const getMe = async (
   if (!id) {
     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized");
   }
-  const cached = await UserCacheManage.getCacheSingleUser(id);
+  const cached = await UserCacheManage.getCacheSingleUser(`${id}-me`);
   if (cached) return cached;
   const user = await User.findById(id).lean();
   const profile = await Profile.findOne({ userId: id }).lean();
@@ -305,7 +324,7 @@ const getMe = async (
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
-  await UserCacheManage.setCacheSingleUser(id, user);
+  await UserCacheManage.setCacheSingleUser(`${id}-me`, user);
   return user;
 };
 //!mine
@@ -410,6 +429,10 @@ const updateUserByToken = async (
   if (!updatedUser) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
+
+  //remove cache
+  await UserCacheManage.updateUserCache(id);
+  await UserCacheManage.updateUserCache(`${id}-me`);
   return updatedUser;
 };
 //!mine
@@ -445,10 +468,12 @@ const updateProfileByToken = async (
   if (!updatedProfile) {
     throw new AppError(StatusCodes.BAD_REQUEST, "Profile update failed");
   }
-
+  //remove cache
+  await UserCacheManage.updateUserCache(userId);
+  await UserCacheManage.updateUserCache(`${userId}-me`);
   return updatedProfile;
 };
-
+//!mine
 const deleteProfileImage = async (userId: string, imageIndex: number) => {
   const profile = await Profile.findOne({ userId });
   if (!profile) {
@@ -486,7 +511,9 @@ const deleteProfileImage = async (userId: string, imageIndex: number) => {
   if (!updatedProfile) {
     throw new AppError(StatusCodes.BAD_REQUEST, "Failed to delete image");
   }
-
+ //remove cache
+  await UserCacheManage.updateUserCache(userId);
+  await UserCacheManage.updateUserCache(`${userId}-me`);
   return updatedProfile;
 };
 
@@ -647,11 +674,70 @@ const getNearbyUsers = async (
   return nearbyUsers;
 };
 
+//!mine - Update hidden fields for user profile
+const updateHiddenFields = async (
+  userId: string, 
+  hiddenFieldsUpdate: {
+    [key: string]: boolean;
+  }
+) => {
+  // Get the current profile
+  const profile = await Profile.findOne({ userId });
+  if (!profile) {
+    throw new AppError(
+      StatusCodes.NOT_FOUND, 
+      "Profile not found for this user"
+    );
+  }
+
+  // Validate that only valid hidden field names are provided
+  const validHiddenFields = [
+    'gender', 'hometown', 'workplace', 'jobTitle', 
+    'school', 'studyLevel', 'religious', 'drinkingStatus', 'smokingStatus'
+  ];
+
+  const invalidFields = Object.keys(hiddenFieldsUpdate).filter(
+    field => !validHiddenFields.includes(field)
+  );
+
+  if (invalidFields.length > 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      `Invalid hidden field(s): ${invalidFields.join(', ')}. Valid fields are: ${validHiddenFields.join(', ')}`
+    );
+  }
+
+  // Prepare the update object for hiddenFields
+  const hiddenFieldsUpdateQuery: any = {};
+  
+  Object.keys(hiddenFieldsUpdate).forEach(field => {
+    hiddenFieldsUpdateQuery[`hiddenFields.${field}`] = hiddenFieldsUpdate[field];
+  });
+
+  // Update the profile with new hidden fields settings
+  const updatedProfile = await Profile.findByIdAndUpdate(
+    profile._id,
+    { $set: hiddenFieldsUpdateQuery },
+    { new: true, runValidators: true }
+  ).populate({
+    path: "userId",
+    select: "-authentication",
+  });
+
+  if (!updatedProfile) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "Failed to update hidden fields");
+  }
+
+  // Clear any cached user data to ensure fresh data on next request
+  await UserCacheManage.updateUserCache(userId);
+
+  return updatedProfile;
+};
+
 export const UserServices = {
   createUser,
   getAllUsers,
   getUserById,
-  updateUser,
   updateUserActivationStatus,
   updateUserRole,
   getMe,
@@ -665,4 +751,5 @@ export const UserServices = {
   addProfileFields,
   updateProfileByToken,
   deleteProfileImage,
+  updateHiddenFields,
 };

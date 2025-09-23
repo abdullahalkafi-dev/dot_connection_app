@@ -100,29 +100,7 @@ const getNearbyUsers = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-const updateUser = catchAsync(async (req: Request, res: Response) => {
-  const userdata = JSON.parse(req.body.data);
-  let image = null;
-  if (req.files && "image" in req.files && req.files.image[0]) {
-    image = req.files.image[0].path;
-  }
-  const user = {
-    ...userdata,
-    image: image,
-  };
-  if (user.image === null) {
-    delete user.image;
-  }
 
-  const id = req.params.id;
-  const result = await UserServices.updateUser(id, user);
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "User updated successfully",
-    data: result,
-  });
-});
 //!mine
 const updateUserByToken = catchAsync(async (req: Request, res: Response) => {
   const userdata = JSON.parse(req.body.data);
@@ -334,11 +312,26 @@ const deleteProfileImage = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
+//!mine - Update hidden fields for user profile
+const updateHiddenFields = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user._id;
+  const { hiddenFields } = req.body;
+
+  const result = await UserServices.updateHiddenFields(userId, hiddenFields);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Hidden fields updated successfully",
+    data: result,
+  });
+});
+
 export const UserController = {
   createUser,
   getAllUsers,
   getUserById,
-  updateUser,
   updateUserActivationStatus,
   updateUserRole,
   getMe,
@@ -353,4 +346,5 @@ export const UserController = {
   addProfileFields,
   updateProfileByToken,
   deleteProfileImage,
+  updateHiddenFields,
 };

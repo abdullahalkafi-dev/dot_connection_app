@@ -135,6 +135,44 @@ const profileSchema = new Schema<TProfile, ProfileModal>(
       ],
       default: "prefer_not_to_say",
     },
+    hiddenFields: {
+      gender: {
+        type: Boolean,
+        default: false,
+      },
+      hometown: {
+        type: Boolean,
+        default: false,
+      },
+      workplace: {
+        type: Boolean,
+        default: false,
+      },
+      jobTitle: {
+        type: Boolean,
+        default: false,
+      },
+      school: {
+        type: Boolean,
+        default: false,
+      },
+      studyLevel: {
+        type: Boolean,
+        default: false,
+      },
+      religious: {
+        type: Boolean,
+        default: false,
+      },
+      drinkingStatus: {
+        type: Boolean,
+        default: false,
+      },
+      smokingStatus: {
+        type: Boolean,
+        default: false,
+      },
+    },
     profileViews: {
       type: Number,
       default: 0,
@@ -199,25 +237,6 @@ profileSchema.statics.calculateCompleteness = function (
   return Math.min(100, completeness);
 };
 
-// Static method to find nearby profiles
-profileSchema.statics.findNearbyProfiles = async function (
-  location: any,
-  maxDistance: number,
-  excludeIds: string[]
-) {
-  return await this.find({
-    _id: { $nin: excludeIds },
-    location: {
-      $near: {
-        $geometry: location,
-        $maxDistance: maxDistance * 1000, // Convert km to meters
-      },
-    },
-  }).populate({
-    path: "userId",
-    select: "-authentication",
-  });
-};
 
 // Validation middleware for age range
 profileSchema.pre("save", function (next) {

@@ -13,7 +13,6 @@ export type TLocation = {
   address?: string;
 };
 
-
 export type TProfile = {
   userId: Types.ObjectId; // This will be the primary identifier (_id)
   bio?: string;
@@ -36,6 +35,17 @@ export type TProfile = {
   studyLevel?: (typeof PROFILE_STUDY_LEVEL)[keyof typeof PROFILE_STUDY_LEVEL];
   religious?: (typeof PROFILE_RELIGION)[keyof typeof PROFILE_RELIGION][];
   profileViews?: number;
+  hiddenFields?: {
+    gender: boolean;
+    hometown: boolean;
+    workplace: boolean;
+    jobTitle: boolean;
+    school: boolean;
+    studyLevel: boolean;
+    religious: boolean;
+    drinkingStatus: boolean;
+    smokingStatus: boolean;
+  };
   lastActive?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -44,13 +54,7 @@ export type TProfile = {
 export type ProfileModal = {
   findByUserId(userId: string): Promise<TProfile | null>;
   calculateCompleteness(profile: TProfile): number;
-  findNearbyProfiles(
-    location: TLocation,
-    maxDistance: number,
-    excludeIds: string[]
-  ): Promise<TProfile[]>;
 } & Model<TProfile>;
-
 export namespace TReturnProfile {
   export type Meta = {
     page: number;

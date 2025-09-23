@@ -5,8 +5,8 @@ import { UserValidation } from "./user.validation";
 import fileUploadHandler from "../../middlewares/fileUploadHandler";
 import auth from "../../middlewares/auth";
 import { USER_ROLES } from "./user.constant";
-import { ProfileValidations } from "../profile/profile.validation";
-import { authLimiter, strictLimiter } from "../../middlewares/security";
+
+import { authLimiter} from "../../middlewares/security";
 
 const router = express.Router();
 
@@ -54,6 +54,7 @@ router.put(
   UserController.addProfileFields
 );
 
+//!mine - Get user by ID
 router.get("/:id", auth(), UserController.getUserById);
 
 //!mine
@@ -74,6 +75,14 @@ router.patch(
   UserController.updateProfileByToken
 );
 
+//!mine - Update hidden fields for user profile
+router.patch(
+  "/update-hidden-fields",
+  auth(),
+  validateRequest(UserValidation.updateHiddenFields),
+  UserController.updateHiddenFields
+);
+
 //!mine
 router.delete(
   "/profile/image/:imageIndex",
@@ -91,13 +100,7 @@ router.patch(
   validateRequest(UserValidation.updateUserRole),
   UserController.updateUserRole
 );
-router.patch(
-  "/:id",
-  auth(),
-  fileUploadHandler,
-  validateRequest(UserValidation.updateUser),
-  UserController.updateUser
-);
+
 
 //!mine
 router.post(
