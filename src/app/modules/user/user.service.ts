@@ -490,25 +490,86 @@ const deleteProfileImage = async (userId: string, imageIndex: number) => {
   return updatedProfile;
 };
 
-//!mine - Get nearby users within specified radius
-const getNearbyUsers = async (currentUserId: string, radiusKm: number = 25) => {
-  // First get the current user's profile with location
-  const currentUserProfile = await Profile.findOne({
-    userId: currentUserId,
-  }).select("location");
+//!mine - Get nearby users within specified radius with enhanced filtering
+const getNearbyUsers = async (
+  currentUserId: string,
+  filters: {
+    radius?: number;
+    latitude?: number;
+    longitude?: number;
+    gender?: string;
+    interests?: string[];
+    interestedIn?: string;
+    lookingFor?: string;
+    religious?: string;
+    studyLevel?: string;
+  } = {}
+) => {
+  const {
+    radius = 25,
+    latitude: queryLatitude,
+    longitude: queryLongitude,
+    gender,
+    interests,
+    interestedIn,
+    lookingFor,
+    religious,
+    studyLevel,
+  } = filters;
 
-  if (!currentUserProfile || !currentUserProfile.location) {
+  let longitude: number;
+  let latitude: number;
+
+  // Validate that both latitude and longitude are provided together
+  const hasLatitude = queryLatitude !== undefined;
+  const hasLongitude = queryLongitude !== undefined;
+
+  if (hasLatitude !== hasLongitude) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      "User location not found. Please update your location first."
+      "Both latitude and longitude must be provided together, or neither should be provided."
     );
   }
 
-  const { coordinates } = currentUserProfile.location;
-  const [longitude, latitude] = coordinates;
+  // Use provided coordinates or get from current user's profile
+  if (hasLatitude && hasLongitude) {
+    latitude = queryLatitude;
+    longitude = queryLongitude;
+  } else {
+    // Get current user's profile with location
+    const currentUserProfile = await Profile.findOne({
+      userId: currentUserId,
+    }).select("location");
+
+    if (!currentUserProfile || !currentUserProfile.location) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        "User location not found. Please provide both latitude and longitude or update your profile location."
+      );
+    }
+
+    const { coordinates } = currentUserProfile.location;
+    [longitude, latitude] = coordinates;
+  }
 
   // Convert radius from kilometers to meters for MongoDB
-  const radiusMeters = radiusKm * 1000;
+  const radiusMeters = radius * 1000;
+
+  // Build match conditions for additional filters
+  const additionalMatchConditions: any = {
+    userId: { $ne: new mongoose.Types.ObjectId(currentUserId) }, // Exclude current user
+    location: { $exists: true }, // Only users with location
+  };
+
+  // Add profile field filters
+  if (gender) additionalMatchConditions.gender = gender;
+  if (interestedIn) additionalMatchConditions.interestedIn = interestedIn;
+  if (lookingFor) additionalMatchConditions.lookingFor = lookingFor;
+  if (religious) additionalMatchConditions.religious = religious;
+  if (studyLevel) additionalMatchConditions.studyLevel = studyLevel;
+  if (interests && interests.length > 0) {
+    additionalMatchConditions.interests = { $in: interests };
+  }
 
   const nearbyUsers = await Profile.aggregate([
     {
@@ -520,10 +581,7 @@ const getNearbyUsers = async (currentUserId: string, radiusKm: number = 25) => {
         distanceField: "distance",
         maxDistance: radiusMeters,
         spherical: true,
-        query: {
-          userId: { $ne: new mongoose.Types.ObjectId(currentUserId) }, // Exclude current user
-          location: { $exists: true }, // Only users with location
-        },
+        query: additionalMatchConditions,
       },
     },
     {
@@ -540,6 +598,7 @@ const getNearbyUsers = async (currentUserId: string, radiusKm: number = 25) => {
     {
       $match: {
         "user.status": "active", // Only active users
+        "user.verified": true, // Only verified users
       },
     },
     {
@@ -567,6 +626,17 @@ const getNearbyUsers = async (currentUserId: string, radiusKm: number = 25) => {
             ],
           },
         },
+
+        gender: 1,
+        interests: 1,
+        interestedIn: 1,
+        lookingFor: 1,
+        religious: 1,
+        studyLevel: 1,
+        bio: 1,
+        height: 1,
+        workplace: 1,
+        school: 1,
       },
     },
     {

@@ -221,7 +221,33 @@ const getNearbyUsers = z.object({
   query: z.object({
     radius: z.string().optional().refine((val) => !val || (!isNaN(Number(val)) && Number(val) > 0), {
       message: "Radius must be a positive number"
-    })
+    }),
+    latitude: z.string().optional().refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= -90 && Number(val) <= 90), {
+      message: "Latitude must be a number between -90 and 90"
+    }),
+    longitude: z.string().optional().refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= -180 && Number(val) <= 180), {
+      message: "Longitude must be a number between -180 and 180"
+    }),
+    gender: z.enum(["male", "female", "other"]).optional(),
+    interests: z.string().optional().refine((val) => {
+      if (!val) return true;
+      const interestArray = val.split(',').map(i => i.trim());
+      return interestArray.every(interest => Object.values(PROFILE_INTERESTS).includes(interest as any));
+    }, {
+      message: "Invalid interests provided"
+    }),
+    interestedIn: z.enum(["male", "female", "everyone"]).optional(),
+    lookingFor: z.enum(["friendship", "dating", "relationship", "networking"]).optional(),
+    religious: z.enum(Object.values(PROFILE_RELIGION) as [string, ...string[]]).optional(),
+    studyLevel: z.enum(Object.values(PROFILE_STUDY_LEVEL) as [string, ...string[]]).optional()
+  }).refine((data) => {
+    // Both latitude and longitude must be provided together, or neither should be provided
+    const hasLatitude = data.latitude !== undefined;
+    const hasLongitude = data.longitude !== undefined;
+    return hasLatitude === hasLongitude;
+  }, {
+    message: "Both latitude and longitude must be provided together, or neither should be provided",
+    path: ["latitude"] // This will show the error on the latitude field
   })
 });
 

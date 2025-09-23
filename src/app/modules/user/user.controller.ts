@@ -47,17 +47,51 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
 
 //!mine - Get nearby users within specified radius
 const getNearbyUsers = catchAsync(async (req: Request, res: Response) => {
-  const { radius = "25" } = req.query as {
+  const { 
+    radius = "25",
+    latitude,
+    longitude,
+    gender,
+    interests,
+    interestedIn,
+    lookingFor,
+    religious,
+    studyLevel
+  } = req.query as {
     radius?: string;
+    latitude?: string;
+    longitude?: string;
+    gender?: string;
+    interests?: string;
+    interestedIn?: string;
+    lookingFor?: string;
+    religious?: string;
+    studyLevel?: string;
   };
   
   const currentUserId = req.user._id;
+  
+  // Parse numeric values
   const searchRadius = parseFloat(radius);
+  const parsedLatitude = latitude ? parseFloat(latitude) : undefined;
+  const parsedLongitude = longitude ? parseFloat(longitude) : undefined;
+  
+  // Parse array values (interests can be comma-separated)
+  const parsedInterests = interests ? interests.split(',').map(i => i.trim()) : undefined;
 
-  const result = await UserServices.getNearbyUsers(
-    currentUserId,
-    searchRadius
-  );
+  const filters = {
+    radius: searchRadius,
+    latitude: parsedLatitude,
+    longitude: parsedLongitude,
+    gender,
+    interests: parsedInterests,
+    interestedIn,
+    lookingFor,
+    religious,
+    studyLevel
+  };
+
+  const result = await UserServices.getNearbyUsers(currentUserId, filters);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
