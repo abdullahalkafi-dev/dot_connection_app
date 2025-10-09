@@ -46,9 +46,5 @@ export namespace TReturnUser {
     result: TUser[];
     meta?: Meta;
   };
-  export type getSingleUser = TUser;
-  export type updateUser = TUser;
-  export type updateUserActivationStatus = TUser;
-  export type updateUserRole = TUser;
-  export type deleteUser = TUser;
+
 }

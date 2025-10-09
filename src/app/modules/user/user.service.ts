@@ -15,7 +15,7 @@ import { TProfile } from "../profile/profile.interface";
 
 const getUserById = async (
   id: string
-): Promise<Partial<TReturnUser.getSingleUser>> => {
+) => {
   console.log(id);
   // First check cache
   const cached = await UserCacheManage.getCacheSingleUser(id);
@@ -73,7 +73,7 @@ const applyHiddenFieldsFilter = (user: any) => {
 const updateUserActivationStatus = async (
   id: string,
   status: "active" | "delete"
-): Promise<TReturnUser.updateUserActivationStatus> => {
+) => {
   // console.log(status);
   // console.log(id);
 
@@ -96,7 +96,7 @@ const updateUserActivationStatus = async (
 const updateUserRole = async (
   id: string,
   role: "USER" | "ADMIN"
-): Promise<Partial<TReturnUser.updateUserRole>> => {
+): Promise<Partial<TUser>> => {
   const user = await User.findByIdAndUpdate(
     id,
     { $set: { role } },
@@ -308,7 +308,7 @@ const createUser = async (user: TUser): Promise<{ message: string }> => {
 //!mine
 const getMe = async (
   id: string
-): Promise<Partial<TReturnUser.getSingleUser>> => {
+)=> {
   console.log(id);
   if (!id) {
     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized");
@@ -420,8 +420,8 @@ const addProfileFields = async (userId: string, fields: Partial<TUser>) => {
 //!mine
 const updateUserByToken = async (
   id: string,
-  updateData: Partial<TReturnUser.updateUser>
-): Promise<Partial<TReturnUser.updateUser>> => {
+  updateData: Partial<TUser>
+): Promise<Partial<TUser>> => {
   const user = await User.findById(id);
 
   if (updateData.image && user?.image) {

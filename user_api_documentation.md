@@ -58,15 +58,18 @@ Authorization: Bearer <your_jwt_token>
   "success": true,
   "message": "Login successful",
   "data": {
-    "token": "jwt_token_here",
     "user": {
       "_id": "user_id",
       "email": "user@example.com",
-      "verified": true
-    }
+      "verified": true,
+      "firstName": "John",
+      "lastName": "Doe"
+    },
+    "accessToken": "jwt_access_token_here"
   }
 }
 ```
+- **Note:** Also sets a `refreshToken` as an httpOnly cookie (valid for 30 days)
 
 ---
 
@@ -355,16 +358,82 @@ Authorization: Bearer <your_jwt_token>
 
 ### 1.13 Delete Account
 - **Endpoint:** `DELETE /user/delete`
-- **Description:** Soft delete your account
+- **Description:** Soft delete your account (changes status to deleted)
 - **Auth Required:** Yes
 - **Success Response:**
 ```json
 {
   "success": true,
-  "message": "Account deleted successfully"
+  "message": "User status changed successfully"
 }
 ```
 
+---
+
+### 1.14 Get All Users (Admin)
+- **Endpoint:** `GET /user`
+- **Description:** Get all users (paginated) - Admin only
+- **Auth Required:** Yes (Admin or User role)
+- **Query Parameters:**
+  - `page` - Page number (optional, default: 1)
+  - `limit` - Items per page (optional, default: 10)
+  - `searchTerm` - Search by name or email (optional)
+  - `sortBy` - Field to sort by (optional)
+  - `sortOrder` - "asc" or "desc" (optional)
+- **Example:** `GET /user?page=1&limit=20&searchTerm=john`
+- **Success Response:**
+```json
+{
+  "success": true,
+  "message": "Users retrieved successfully",
+  "data": [
+    {
+      "_id": "user_id",
+      "email": "user@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "verified": true,
+      "status": "active"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+---
+
+### 1.15 Update User Role (Admin)
+- **Endpoint:** `PATCH /user/:id/role`
+- **Description:** Update user's role - Admin only
+- **Auth Required:** Yes (Admin role)
+- **URL Parameter:**
+  - `id` - User ID
+- **Body:**
+```json
+{
+  "role": "ADMIN"
+}
+```
+- **Note:** `role` can be "USER" or "ADMIN" (uppercase)
+- **Success Response:**
+```json
+{
+  "success": true,
+  "message": "User role updated successfully",
+  "data": {
+    "_id": "user_id",
+    "email": "user@example.com",
+    "role": "ADMIN"
+  }
+}
+```
+
+---
 
 ## Important Notes
 
@@ -372,8 +441,9 @@ Authorization: Bearer <your_jwt_token>
 
 #### Interests
 ```
-"Travel", "Music", "Sports", "Reading", "Cooking", "Gaming", 
-"Fitness", "Movies", "Art", "Photography", "Dancing"
+"travel", "fitness", "photography", "cooking", "reading", "hiking", 
+"fashion", "craft_beer", "dancing", "sports", "tango", "music", 
+"movies", "gaming", "yoga"
 ```
 
 #### Looking For
@@ -393,23 +463,23 @@ Authorization: Bearer <your_jwt_token>
 
 #### Study Level
 ```
-"High School", "Bachelor", "Master", "PhD", "Diploma", "Other"
+"highSchool", "underGraduation", "postGraduation", "preferNotToSay"
 ```
 
 #### Religion
 ```
-"Christian", "Muslim", "Hindu", "Buddhist", "Jewish", "Atheist", 
-"Agnostic", "Other", "Prefer not to say"
+"buddhist", "christian", "muslim", "atheist", "catholic", "hindu", 
+"spiritual", "jewish", "agnostic", "other", "prefer_not_to_say"
 ```
 
 #### Smoking Status
 ```
-"Never", "Sometimes", "Regular", "Trying to quit"
+"Yes", "Occasionally", "Prefer Not to Say", "No"
 ```
 
 #### Drinking Status
 ```
-"Never", "Socially", "Regular", "Prefer not to say"
+"Yes", "Occasionally", "Prefer Not to Say", "No"
 ```
 
 ### Location Format
@@ -494,6 +564,7 @@ Control which profile fields are visible to other users:
 
 ### 5. Nearby Users Search
 - Default radius is 25km if not specified
+- Maximum allowed distance (maxDistance) in profile is 25km
 - If latitude/longitude not provided, uses your profile location
 - Both latitude and longitude must be provided together
 - Can combine with other filters (gender, interests, etc.)
@@ -515,7 +586,7 @@ Control which profile fields are visible to other users:
 
 **Interests:**
 ```
-Travel, Music, Sports, Reading, Cooking, Gaming, Fitness, Movies, Art, Photography, Dancing
+travel, fitness, photography, cooking, reading, hiking, fashion, craft_beer, dancing, sports, tango, music, movies, gaming, yoga
 ```
 
 **Gender:**
@@ -535,22 +606,22 @@ friendship, dating, relationship, networking
 
 **Study Level:**
 ```
-High School, Bachelor, Master, PhD, Diploma, Other
+highSchool, underGraduation, postGraduation, preferNotToSay
 ```
 
 **Religion:**
 ```
-Christian, Muslim, Hindu, Buddhist, Jewish, Atheist, Agnostic, Other, Prefer not to say
+buddhist, christian, muslim, atheist, catholic, hindu, spiritual, jewish, agnostic, other, prefer_not_to_say
 ```
 
 **Smoking Status:**
 ```
-Never, Sometimes, Regular, Trying to quit
+Yes, Occasionally, Prefer Not to Say, No
 ```
 
 **Drinking Status:**
 ```
-Never, Socially, Regular, Prefer not to say
+Yes, Occasionally, Prefer Not to Say, No
 ```
 
 ### 9. Error Handling
