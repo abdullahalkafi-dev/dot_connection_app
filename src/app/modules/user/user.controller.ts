@@ -3,6 +3,7 @@ import { StatusCodes } from "http-status-codes";
 import { UserServices } from "./user.service";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
+import { logger } from "../../../shared/logger";
 //!mine
 const createUser = catchAsync(async (req: Request, res: Response) => {
   const { message } = await UserServices.createUser(req.body);
@@ -36,6 +37,7 @@ const getUserById = catchAsync(async (req: Request, res: Response) => {
 });
 //!mine
 const getMe = catchAsync(async (req: Request, res: Response) => {
+  logger.info(`GetMe called by user ID: ${req.user._id}`);
   const user = await UserServices.getMe(req.user._id);
   sendResponse(res, {
     statusCode: StatusCodes.OK,

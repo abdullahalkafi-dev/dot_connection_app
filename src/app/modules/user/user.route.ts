@@ -20,7 +20,7 @@ router.post(
   validateRequest(UserValidation.createUser),
   UserController.createUser
 );
-
+//!admin route
 router.get(
   "/",
   auth(USER_ROLES.ADMIN, USER_ROLES.USER),
@@ -89,12 +89,13 @@ router.delete(
   auth(),
   UserController.deleteProfileImage
 );
-
+//!mine
 router.patch(
   "/:id/status",
   validateRequest(UserValidation.updateUserActivationStatus),
   UserController.updateUserActivationStatus
 );
+//!admin route
 router.patch(
   "/:id/role",
   validateRequest(UserValidation.updateUserRole),

@@ -30,8 +30,6 @@ async function main() {
 
     logger.info(colors.green('🚀 Database connected successfully'));
 
-    // Create database indexes for optimal performance
-    await createDatabaseIndexes();
 
     const port =
       typeof config.port === 'number' ? config.port : Number(config.port);
@@ -47,7 +45,7 @@ async function main() {
       setupSocket(server);
       logger.info(colors.blue('🔌 Socket.IO initialized successfully'));
       
-    // For Docker: bind to 0.0.0.0 to allow nginx to reach the containers
+   
     // For local development: can bind to specific IP
     server.listen(port, '0.0.0.0' as string, () => {
       logger.info(

@@ -411,6 +411,10 @@ const addProfileFields = async (userId: string, fields: Partial<TUser>) => {
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
+  //remove cache
+  await UserCacheManage.updateUserCache(userId);
+
+
   return user;
 };
 //!mine

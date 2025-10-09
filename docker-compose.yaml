@@ -61,8 +61,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     deploy: 
-      replicas: 3
-
+      replicas: 1
+          
   nginx:
     image: nginx:latest
     container_name: dot_connection_app_nginx
