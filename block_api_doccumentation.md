@@ -55,12 +55,15 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
+  "message": "Blocked users retrieved successfully",
   "data": [
     {
-      "_id": "user_id",
-      "firstName": "John",
-      "lastName": "Doe",
-      "profile": { ... }
+      "_id": "68c2afd9df3c9faf2b23b97f",
+      "userId": "68be6aeba0db89cc44e4328c",
+      "firstName": "Rahim",
+      "lastName": "Khan",
+      "image": "",
+      "createdAt": "2025-09-11T11:17:45.019Z"
     }
   ]
 }
@@ -70,7 +73,7 @@ Authorization: Bearer <your_jwt_token>
 
 ### 5.4 Check Block Status
 - **Endpoint:** `GET /block/status/:userId`
-- **Description:** Check if you and another user are blocking each other
+- **Description:** Check if a specific user is blocked
 - **Auth Required:** Yes
 - **URL Parameter:**
   - `userId` - User ID to check
@@ -78,10 +81,9 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
+  "message": "Block status retrieved successfully",
   "data": {
-    "youBlockedThem": false,
-    "theyBlockedYou": false,
-    "anyBlocked": false
+    "isBlocked": false
   }
 }
 ```
@@ -112,9 +114,8 @@ When you block someone:
 - Chat history becomes visible again
 
 ### 4. Block Status Response
-- `youBlockedThem: true` - You have blocked this user
-- `theyBlockedYou: true` - This user has blocked you
-- `anyBlocked: true` - Either of you blocked the other
+- `isBlocked: true` - The specified user is blocked by you
+- `isBlocked: false` - The specified user is not blocked by you
 
 ### 5. Privacy & Notifications
 - No notification sent when you block someone
