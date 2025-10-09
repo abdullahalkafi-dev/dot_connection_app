@@ -95,3 +95,27 @@ If no chats available:
 - Can only see chats with mutual matches
 - Blocked users are automatically filtered out
 - Deleted messages still show in chat list until new message arrives
+
+### 9. Error Responses
+
+All errors follow this structure:
+```json
+{
+  "success": false,
+  "message": "Error message here",
+  "errorSources": [
+    {
+      "path": "fieldName",
+      "message": "Field-specific error message"
+    }
+  ],
+  "err": { "issues": [...], "name": "ZodError" },
+  "stack": "..."
+}
+```
+
+**HTTP Status Codes:**
+- `400` - Validation error
+- `401` - Unauthorized (invalid/missing token)
+- `403` - No mutual connection exists
+- `404` - Chat or user not found

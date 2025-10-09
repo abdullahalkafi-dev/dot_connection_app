@@ -308,7 +308,7 @@ if (!data.allUserFieldsFilled) {
   "studyLevel": "Bachelor",
   "religious": "Christian",
   "smokingStatus": "Never",
-  "drinkingStatus": "Socially",
+  "drinkingStatus": "Occasionally",
   "bio": "Looking for someone special...",
   "hiddenFields": {
     "religious": true,
@@ -654,14 +654,41 @@ Location must always be in GeoJSON Point format:
 **Important:** Coordinates are `[longitude, latitude]` NOT `[latitude, longitude]`
 
 ### Error Response Format
-All errors follow this format:
+
+All errors follow this standardized structure:
+
 ```json
 {
   "success": false,
-  "message": "Error message here",
-  "errorDetails": { ... }
+  "message": "First name must be a text, but received number",
+  "errorSources": [
+    {
+      "path": "firstName",
+      "message": "First name must be a text, but received number"
+    }
+  ],
+  "err": {
+    "issues": [
+      {
+        "code": "invalid_type",
+        "expected": "string",
+        "received": "number",
+        "path": ["data", "firstName"],
+        "message": "Expected string, received number"
+      }
+    ],
+    "name": "ZodError"
+  },
+  "stack": "ZodError: ..."
 }
 ```
+
+**Key Fields:**
+- `success`: Always `false` for errors
+- `message`: Human-readable error message
+- `errorSources`: Array of validation errors with `path` and `message`
+- `err`: Detailed error object with validation issues
+- `stack`: Error stack trace (development only)
 
 ### Pagination
 Endpoints that support pagination accept these query parameters:
@@ -785,18 +812,13 @@ Yes, Occasionally, Prefer Not to Say, No
 ```
 
 ### 9. Error Handling
-All errors follow this format:
-```json
-{
-  "success": false,
-  "message": "Error message here",
-  "errorDetails": { ... }
-}
-```
 
-Common HTTP status codes:
+All errors follow the structure shown in the **Error Response Format** section above.
+
+**HTTP Status Codes:**
 - `400` - Bad Request (validation error)
-- `401` - Unauthorized (missing or invalid token)
+- `401` - Unauthorized (invalid/missing token)
 - `403` - Forbidden (insufficient permissions)
 - `404` - Not Found
+- `409` - Conflict (duplicate email, etc.)
 - `500` - Internal Server Error

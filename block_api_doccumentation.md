@@ -147,11 +147,28 @@ When you block someone:
 - Temporary block (can unblock later)
 
 ### 10. Error Responses
-Common errors:
-- `400` - Invalid user ID format
+
+All errors follow this structure:
+```json
+{
+  "success": false,
+  "message": "Error message here",
+  "errorSources": [
+    {
+      "path": "fieldName",
+      "message": "Field-specific error message"
+    }
+  ],
+  "err": { "issues": [...], "name": "ZodError" },
+  "stack": "..."
+}
+```
+
+**HTTP Status Codes:**
+- `400` - Invalid user ID format or validation error
+- `401` - Unauthorized (invalid/missing token)
 - `404` - User not found
-- `409` - User already blocked (when blocking)
-- `409` - User not blocked (when unblocking)
+- `409` - User already blocked (when blocking) or not blocked (when unblocking)
 
 ### 11. Best Practices
 - Always check block status before showing user profile

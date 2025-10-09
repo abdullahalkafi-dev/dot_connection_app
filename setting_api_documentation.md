@@ -98,7 +98,30 @@ class SettingsService {
 }
 ```
 
-### 10. Best Practices
+### 10. Error Responses
+
+All errors follow this structure:
+```json
+{
+  "success": false,
+  "message": "Error message here",
+  "errorSources": [
+    {
+      "path": "fieldName",
+      "message": "Field-specific error message"
+    }
+  ],
+  "err": { "issues": [...], "name": "ZodError" },
+  "stack": "..."
+}
+```
+
+**HTTP Status Codes:**
+- `400` - Validation error
+- `401` - Unauthorized (invalid/missing token)
+- `404` - Setting not found
+
+### 11. Best Practices
 - Cache settings data locally
 - Show loading state while fetching
 - Handle network errors gracefully

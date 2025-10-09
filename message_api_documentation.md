@@ -184,8 +184,25 @@ Three types of messages are supported:
 - Files must be valid format and size
 
 ### 11. Error Responses
-Common errors:
-- `400` - Invalid message data or missing required fields
+
+All errors follow this structure:
+```json
+{
+  "success": false,
+  "message": "Error message here",
+  "errorSources": [
+    {
+      "path": "fieldName",
+      "message": "Field-specific error message"
+    }
+  ],
+  "err": { "issues": [...], "name": "ZodError" },
+  "stack": "..."
+}
+```
+
+**HTTP Status Codes:**
+- `400` - Invalid message data or validation error
 - `403` - No mutual connection exists
 - `404` - Receiver user not found
 - `413` - File too large

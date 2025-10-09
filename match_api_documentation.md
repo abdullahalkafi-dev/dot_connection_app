@@ -259,8 +259,25 @@ Only two actions are supported:
 - Blocked users won't appear in potential matches
 
 ### 9. Error Responses
-Common errors:
-- `400` - Invalid action type or user ID
+
+All errors follow this structure:
+```json
+{
+  "success": false,
+  "message": "Error message here",
+  "errorSources": [
+    {
+      "path": "fieldName",
+      "message": "Field-specific error message"
+    }
+  ],
+  "err": { "issues": [...], "name": "ZodError" },
+  "stack": "..."
+}
+```
+
+**HTTP Status Codes:**
+- `400` - Invalid action type, user ID, or validation error
+- `403` - Cannot perform action (blocked, no profile, etc.)
 - `404` - User not found or request not found
 - `409` - Already interacted with this user
-- `403` - Cannot perform action (blocked, no profile, etc.)
