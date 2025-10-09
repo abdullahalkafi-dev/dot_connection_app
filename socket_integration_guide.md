@@ -81,31 +81,6 @@ socket.emit('register', userId);
 
 **Purpose:** Register your user ID with the socket server to receive targeted events
 
----
-
-#### 2. Update FCM Token
-**Event:** `updateFcmToken`
-
-**When:** After getting FCM token for push notifications
-
-**Data:**
-```dart
-socket.emit('updateFcmToken', {
-  'userId': userId,
-  'fcmToken': fcmToken
-});
-```
-
-**Response:** `fcmTokenUpdated`
-```dart
-socket.on('fcmTokenUpdated', (data) {
-  if (data['success']) {
-    print('FCM token updated successfully');
-  }
-});
-```
-
----
 
 #### 3. Active Chat
 **Event:** `activeChat`
@@ -139,32 +114,50 @@ socket.emit('activeChat', {
 **Data:**
 ```dart
 socket.emit('sendMessage', {
-  'senderId': myUserId,
-  'receiverId': partnerId,
-  'message': 'Hello!'
+  'senderId': '68be64b2a0db89cc44e43270',
+  'receiverId': '68be6aeba0db89cc44e4328c',
+  'message': 'Hello there!'
 });
 ```
 
-**Purpose:** Send text messages instantly without REST API
+**Purpose:** Send text messages instantly via socket connection
 
-**Note:** For images/audio, use REST API endpoints instead
+**Response Events:**
+- Sender receives: `message-sent` (confirmation)
+- Receiver receives: `receiver-{receiverId}` (the actual message)
+
+**Important Notes:**
+- Only for **text messages** (no files)
+- For images: Use `POST /message/image` REST API endpoint
+- For audio: Use `POST /message/audio` REST API endpoint
+- Requires mutual connection between users (will fail if no connection exists)
+- Message is saved to database before being sent to receiver
 
 ---
 
 #### 5. Mark as Read
 **Event:** `markAsRead`
 
-**When:** User opens chat and reads messages
+**When:** User opens chat and views unread messages
 
 **Data:**
 ```dart
 socket.emit('markAsRead', {
-  'senderId': chatPartnerId,  // Who sent the messages
-  'receiverId': myUserId      // You (who's reading)
+  'senderId': '68be6aeba0db89cc44e4328c',  // Who sent the messages to you
+  'receiverId': '68be64b2a0db89cc44e43270'  // You (who's reading them)
 });
 ```
 
-**Purpose:** Mark all messages from a user as read
+**Purpose:** Mark all unread messages from a specific user as read
+
+**Response:**
+- Updates all unread messages in database: `isRead: true`, `readAt: timestamp`
+- Sender receives `messages-read` event notification
+
+**When to emit:**
+- When user opens a chat screen
+- When user views messages in the chat
+- Can be called when scrolling through old messages to update read status
 
 ---
 
@@ -200,87 +193,121 @@ socket.on('onlineUsers', (data) {
 socket.on('receiver-$myUserId', (data) {
   Message message = Message.fromJson(data);
   // {
-  //   "_id": "message_id",
-  //   "senderId": "sender_id",
-  //   "receiverId": "your_id",
-  //   "message": "Hello!",
-  //   "messageType": "text",
+  //   "_id": "68c0faee08089cbc8be60e26",
+  //   "senderId": "68be64b2a0db89cc44e43270",
+  //   "receiverId": "68be6aeba0db89cc44e4328c",
+  //   "message": "Hello there!",
+  //   "image": null,      // For single image messages
+  //   "images": [],       // For multiple image messages
+  //   "audio": null,      // For audio messages
+  //   "messageType": "text",  // "text", "image", or "audio"
   //   "isRead": false,
-  //   "createdAt": "2025-01-01T10:00:00Z"
+  //   "createdAt": "2025-09-10T04:13:34.066Z"
   // }
   
   // Add message to chat
   // Update UI
   // Show notification if not in chat
+  // Play notification sound if app is in background
 });
 ```
 
 **Purpose:** Receive messages in real-time
+
+**Note:** 
+- Only text messages are sent via socket
+- Image and audio messages should be fetched via REST API after receiving notification
+- The `messageType` field indicates: `text`, `image`, or `audio`
 
 ---
 
 #### 3. Message Sent Confirmation
 **Event:** `message-sent`
 
-**When:** Your message is successfully sent
+**When:** Your message is successfully sent and saved to database
 
 **Data:**
 ```dart
 socket.on('message-sent', (data) {
   // {
-  //   "_id": "message_id",
-  //   "senderId": "your_id",
-  //   "receiverId": "partner_id",
-  //   "message": "Hello!",
+  //   "_id": "68c0faee08089cbc8be60e26",
+  //   "senderId": "68be64b2a0db89cc44e43270",
+  //   "receiverId": "68be6aeba0db89cc44e4328c",
+  //   "message": "Hello there!",
+  //   "image": null,
+  //   "images": [],
+  //   "audio": null,
   //   "messageType": "text",
-  //   "status": "sent",
-  //   "createdAt": "2025-01-01T10:00:00Z"
+  //   "isRead": false,
+  //   "createdAt": "2025-09-10T04:13:34.066Z",
+  //   "status": "sent"
   // }
   
-  // Update message status to "sent"
+  // Update message status to "sent" (single checkmark)
+  // Replace temporary local message with server message (with _id)
   // Show checkmark in UI
 });
 ```
 
-**Purpose:** Confirm message delivery
+**Purpose:** Confirm message was saved to database and delivered to server
 
 ---
 
 #### 4. Messages Read
 **Event:** `messages-read`
 
-**When:** Other user reads your messages
+**When:** Other user reads your messages (after they emit `markAsRead`)
 
 **Data:**
 ```dart
 socket.on('messages-read', (data) {
   // {
-  //   "senderId": "your_id",
-  //   "receiverId": "partner_id",
+  //   "senderId": "68be64b2a0db89cc44e43270",  // You (the sender)
+  //   "receiverId": "68be6aeba0db89cc44e4328c",  // The reader
   //   "isRead": true
   // }
   
-  // Update all messages to this user as "read"
-  // Show double checkmark in UI
+  // Update all messages you sent to this user as "read"
+  // Change single checkmark to double checkmark
+  // Update message status in local database/cache
 });
 ```
 
-**Purpose:** Show read receipts
+**Purpose:** Show read receipts (double checkmark) when recipient reads your messages
+
+**Note:** This event is triggered when the receiver emits `markAsRead` event
 
 ---
 
 #### 5. Error
 **Event:** `error`
 
-**When:** Something goes wrong with socket operation
+**When:** Something goes wrong with socket operation (validation error, server error, etc.)
 
 **Data:**
 ```dart
 socket.on('error', (data) {
+  // {
+  //   "message": "Invalid message data" 
+  //   // OR
+  //   "message": "Failed to send message"
+  //   // OR
+  //   "message": "Failed to mark messages as read"
+  // }
+  
   print('Socket error: ${data['message']}');
-  // Show error to user
+  // Show user-friendly error message
+  // Log error for debugging
 });
 ```
+
+**Common error messages:**
+- `"Invalid message data"` - Missing required fields in sendMessage
+- `"Failed to send message"` - Database or connection error
+- `"Failed to mark messages as read"` - Database error
+- `"No mutual connection found between users"` - Users not matched
+
+**Purpose:** Handle errors gracefully and inform user of issues
 
 ---
 
@@ -511,9 +538,17 @@ void logout() {
 ### 4. Read Receipts
 - Mark messages as read when user opens chat
 - Listen to `messages-read` event for double checkmarks
-- Update UI to show read status
+- Update UI to show read status (single vs double checkmark)
+- `readAt` timestamp is stored in database for each message
 
-### 5. Online Status
+### 5. Blocked Users
+- Cannot send messages to blocked users
+- Chat list automatically filters out blocked users
+- API returns 403 error: "Cannot access chat with blocked user"
+- Socket connections won't receive messages from blocked users
+- Check block status before attempting to send messages
+
+### 6. Online Status
 - Updates automatically when users connect/disconnect
 - Use for showing green dot indicators
 - Cache online status in app state
@@ -573,6 +608,13 @@ socket?.connect();
 - Verify `receiverId` is you (the reader)
 - Check if messages-read event is properly listened to
 - Ensure socket is connected
+
+### Blocked User Errors
+- Error 403: "Cannot access chat with blocked user"
+- Check if users have blocked each other
+- Blocked users won't appear in chat list
+- Socket won't deliver messages between blocked users
+- Handle block/unblock functionality gracefully in UI
 
 ---
 
