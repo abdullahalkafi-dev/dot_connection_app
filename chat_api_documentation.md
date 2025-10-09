@@ -23,24 +23,20 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
+  "message": "Chat list retrieved successfully",
   "data": [
     {
-      "user": {
-        "_id": "user_id",
-        "firstName": "Jane",
-        "lastName": "Smith",
-        "profile": {
-          "photos": ["photo_url"],
-          "bio": "..."
-        }
+      "_id": "68bfc125309c7bb4c611f3bd",
+      "participant": {
+        "_id": "68be6aeba0db89cc44e4328c",
+        "firstName": "Rahim",
+        "lastName": "Khan",
+        "image": ""
       },
-      "lastMessage": {
-        "message": "Hello!",
-        "createdAt": "2025-01-01T10:00:00Z",
-        "messageType": "text",
-        "senderId": "sender_id"
-      },
-      "unreadCount": 3
+      "lastMessage": "",
+      "lastMessageTime": "2025-09-09T05:54:45.519Z",
+      "unreadCount": 0,
+      "isRead": true
     }
   ]
 }
@@ -53,8 +49,13 @@ Authorization: Bearer <your_jwt_token>
 ### 1. Chat List Behavior
 - Only shows chats with users you've matched with (mutual connections)
 - Sorted by most recent message first
-- Includes unread count for each conversation
-- Shows last message preview
+- Each chat includes:
+  - `_id` - Chat conversation ID
+  - `participant` - The other user's details (id, firstName, lastName, image)
+  - `lastMessage` - Preview of the last message text (empty string if no messages yet)
+  - `lastMessageTime` - Timestamp of the last message
+  - `unreadCount` - Number of unread messages from this user
+  - `isRead` - Boolean indicating if the last message has been read
 
 ### 2. Unread Count
 - Counts messages from the other user that you haven't read
@@ -117,5 +118,24 @@ All errors follow this structure:
 **HTTP Status Codes:**
 - `400` - Validation error
 - `401` - Unauthorized (invalid/missing token)
-- `403` - No mutual connection exists
+- `403` - No mutual connection exists OR Cannot access chat with blocked user
 - `404` - Chat or user not found
+
+**Common Error Examples:**
+
+Blocked User Error:
+```json
+{
+  "success": false,
+  "message": "Cannot access chat with blocked user",
+  "errorSources": [
+    {
+      "path": "",
+      "message": "Cannot access chat with blocked user"
+    }
+  ],
+  "err": {
+    "statusCode": 403
+  }
+}
+```

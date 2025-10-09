@@ -22,28 +22,60 @@ Authorization: Bearer <your_jwt_token>
 - **URL Parameter:**
   - `userId` - User ID to get messages with
 - **Query Parameters:**
-  - `page` - Page number (optional)
-  - `limit` - Messages per page (optional)
+  - `page` - Page number (optional, default: 1)
+  - `limit` - Messages per page (optional, default: 50)
 - **Success Response:**
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "_id": "message_id",
-      "senderId": "user_id",
-      "receiverId": "user_id",
-      "message": "Hello!",
-      "messageType": "text",
-      "isRead": false,
-      "createdAt": "2025-01-01T10:00:00Z"
-    }
-  ],
+  "message": "Chat messages retrieved successfully",
   "meta": {
     "page": 1,
     "limit": 50,
-    "total": 120
-  }
+    "total": 2,
+    "totalPage": 1
+  },
+  "data": [
+    {
+      "_id": "68c0faee08089cbc8be60e26",
+      "sender": {
+        "_id": "68be64b2a0db89cc44e43270",
+        "image": null,
+        "firstName": "John",
+        "lastName": "Doe"
+      },
+      "receiver": {
+        "_id": "68be6aeba0db89cc44e4328c",
+        "image": null,
+        "firstName": "Rahim",
+        "lastName": "Khan"
+      },
+      "message": "Hello there! 123",
+      "images": [],
+      "messageType": "text",
+      "isRead": true,
+      "createdAt": "2025-09-10T04:13:34.066Z",
+      "updatedAt": "2025-09-10T06:23:48.675Z",
+      "readAt": "2025-09-10T06:23:48.669Z"
+    }
+  ]
+}
+```
+- **Error Response (Blocked User):**
+```json
+{
+  "success": false,
+  "message": "Cannot access chat with blocked user",
+  "errorSources": [
+    {
+      "path": "",
+      "message": "Cannot access chat with blocked user"
+    }
+  ],
+  "err": {
+    "statusCode": 403
+  },
+  "stack": "Error: Cannot access chat with blocked user\n    at /app/src/app/modules/message/message.controller.ts:20:11\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /app/src/shared/catchAsync.ts:7:7"
 }
 ```
 
@@ -51,25 +83,36 @@ Authorization: Bearer <your_jwt_token>
 
 ### 4.2 Send Message with Image
 - **Endpoint:** `POST /message/image`
-- **Description:** Send message with image(s)
+- **Description:** Send message with image(s) - supports single or multiple images
 - **Auth Required:** Yes
 - **Body (FormData):**
-  - `receiverId` - Receiver's user ID
-  - `message` - Text message (optional)
-  - `image` - Single image file (optional)
-  - `images` - Multiple image files, max 10 (optional)
+  - `data` - JSON string containing:
+    - `senderId` - Sender's user ID (required)
+    - `receiverId` - Receiver's user ID (required)
+    - `message` - Text message (optional)
+  - `images` - Array of image files (required, can send single or multiple images, always in array format)
+- **Example FormData:**
+```json
+{
+  "data": "{\"senderId\": \"68be64b2a0db89cc44e43270\", \"receiverId\": \"68be6aeba0db89cc44e4328c\", \"message\": \"Check out this photo!\"}",
+  "images": ["file1.jpg", "file2.png"]
+}
+```
 - **Success Response:**
 ```json
 {
   "success": true,
-  "message": "Message sent successfully",
+  "message": "Image message created successfully",
   "data": {
-    "_id": "message_id",
-    "senderId": "your_id",
-    "receiverId": "receiver_id",
-    "message": "Check this out!",
+    "sender": "68be64b2a0db89cc44e43270",
+    "receiver": "68be6aeba0db89cc44e4328c",
+    "message": "Check out this photo!",
+    "images": ["/images/screenshot-2025-07-29-162123-3FtQZ.webp"],
     "messageType": "image",
-    "images": ["url1.jpg", "url2.jpg"]
+    "isRead": false,
+    "_id": "68c258a333d1d4dbbbaed9a5",
+    "createdAt": "2025-09-11T05:05:39.699Z",
+    "updatedAt": "2025-09-11T05:05:39.699Z"
   }
 }
 ```
@@ -78,23 +121,36 @@ Authorization: Bearer <your_jwt_token>
 
 ### 4.3 Send Message with Audio
 - **Endpoint:** `POST /message/audio`
-- **Description:** Send voice message
+- **Description:** Send voice/audio message
 - **Auth Required:** Yes
 - **Body (FormData):**
-  - `receiverId` - Receiver's user ID
-  - `audio` - Audio file
-  - `message` - Text message (optional)
+  - `data` - JSON string containing:
+    - `senderId` - Sender's user ID (required)
+    - `receiverId` - Receiver's user ID (required)
+    - `message` - Text message (optional)
+  - `audio` - Audio file (required)
+- **Example FormData:**
+```json
+{
+  "data": "{\"senderId\": \"68be64b2a0db89cc44e43270\", \"receiverId\": \"68be6aeba0db89cc44e4328c\", \"message\": \"Check out this audio!\"}",
+  "audio": "file_example.mp3"
+}
+```
 - **Success Response:**
 ```json
 {
   "success": true,
-  "message": "Audio message sent successfully",
+  "message": "Audio message created successfully",
   "data": {
-    "_id": "message_id",
-    "senderId": "your_id",
-    "receiverId": "receiver_id",
+    "sender": "68be64b2a0db89cc44e43270",
+    "receiver": "68be6aeba0db89cc44e4328c",
+    "audio": "/audio/file_example_mp3_2mg-jswwt.mp3",
+    "images": [],
     "messageType": "audio",
-    "audioUrl": "audio_url.mp3"
+    "isRead": false,
+    "_id": "68c258a333d1d4dbbbaed9a5",
+    "createdAt": "2025-09-11T05:05:39.699Z",
+    "updatedAt": "2025-09-11T05:05:39.699Z"
   }
 }
 ```
@@ -136,17 +192,19 @@ Three types of messages are supported:
 - Both methods work, Socket.IO is faster for text-only messages
 
 ### 3. Image Messages
-- Can send 1-10 images per message
-- Use `image` field for single image
-- Use `images` field for multiple images (array)
-- Can include text caption with images
+- Can send single or multiple images per message
+- Images are always sent as an array in the `images` field
+- Use FormData with `data` field (JSON string) and `images` field (file array)
+- Can include text caption with images via `message` field in data
 - Supported formats: jpg, jpeg, png, webp
 - Images are automatically compressed and optimized
+- Maximum 10 images per message recommended
 
 ### 4. Audio Messages
 - Single audio file per message
+- Use FormData with `data` field (JSON string) and `audio` field (file)
+- Can include optional text with audio via `message` field in data
 - Supported formats: mp3, wav, m4a
-- Can include optional text with audio
 - Max audio duration: 5 minutes (recommended)
 
 ### 5. Message Pagination
@@ -203,10 +261,29 @@ All errors follow this structure:
 
 **HTTP Status Codes:**
 - `400` - Invalid message data or validation error
-- `403` - No mutual connection exists
+- `403` - No mutual connection exists OR Cannot access chat with blocked user
 - `404` - Receiver user not found
 - `413` - File too large
 - `415` - Unsupported file format
+
+**Common Error Examples:**
+
+Blocked User Error:
+```json
+{
+  "success": false,
+  "message": "Cannot access chat with blocked user",
+  "errorSources": [
+    {
+      "path": "",
+      "message": "Cannot access chat with blocked user"
+    }
+  ],
+  "err": {
+    "statusCode": 403
+  }
+}
+```
 
 ### 12. Best Practices
 - Mark messages as read when user views them
