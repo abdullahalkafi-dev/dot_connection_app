@@ -24,14 +24,8 @@ const setupSocket = (server: any) => {
 
   io.on("connection", (socket) => {
     console.log(`
-      
-      
-      
-      
       new user connected
-      
-      
-      
+
       `);
 
     socket.on("register", (userId) => {

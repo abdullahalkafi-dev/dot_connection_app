@@ -1,642 +1,1344 @@
-# Socket.IO Integration Guide for Flutter
+# Socket Integration Guide - Dot Connection App
+
+This guide provides comprehensive instructions for integrating real-time messaging features using Socket.IO in your frontend application.
+
+## Table of Contents
+- [Overview](#overview)
+- [Backend Configuration](#backend-configuration)
+- [Frontend Setup](#frontend-setup)
+- [Socket Events](#socket-events)
+- [REST API Endpoints](#rest-api-endpoints)
+- [Complete Implementation Examples](#complete-implementation-examples)
+
+---
 
 ## Overview
-This app uses Socket.IO for real-time features like messaging, online status, and match notifications.
 
-## Socket Server URL
+The Dot Connection App uses Socket.IO for real-time bidirectional communication between the client and server. This enables features like:
+- Real-time messaging
+- Online/offline user status
+- Message read receipts
+- Active chat session tracking
+- FCM token updates for push notifications
+
+**Backend Socket URL:** `http://localhost:5000` (Update based on your deployment)
+
+---
+
+## Backend Configuration
+
+### CORS Settings
+The backend is configured to accept connections from:
+- `http://localhost:3000`
+- `http://localhost:5173`
+- Any origin (`*`)
+
+### Connection Requirements
+- Users must be registered (have mutual connections)
+- Valid user IDs are required for all operations
+- Messages require either text content or an image
+
+---
+
+## Frontend Setup
+
+### Installation
+
+```bash
+# Using npm
+npm install socket.io-client
+
+# Using yarn
+yarn add socket.io-client
+
+# Using pnpm
+pnpm add socket.io-client
 ```
-wss://your-api-domain.com
-```
-Or for development:
-```
-ws://localhost:5000
+
+### Basic Initialization
+
+```javascript
+import { io } from 'socket.io-client';
+
+// Initialize socket connection
+const socket = io('http://localhost:5000', {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionAttempts: 5
+});
+
+// Connection event handlers
+socket.on('connect', () => {
+  console.log('Connected to socket server', socket.id);
+});
+
+socket.on('disconnect', () => {
+  console.log('Disconnected from socket server');
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Connection error:', error);
+});
 ```
 
 ---
 
-## Flutter Package
-Add to your `pubspec.yaml`:
-```yaml
-dependencies:
-  socket_io_client: ^2.0.3+1
-```
+## Socket Events
 
----
+### Client to Server Events
 
-## Initial Connection Setup
+#### 1. Register User Online
+Register the current user as online when they connect to the app.
 
-### 1. Connect to Socket Server
-
-```dart
-import 'package:socket_io_client/socket_io_client.dart' as IO;
-
-class SocketService {
-  IO.Socket? socket;
-  
-  void connect(String userId, String token) {
-    socket = IO.io('https://your-api-domain.com', <String, dynamic>{
-      'transports': ['websocket'],
-      'autoConnect': false,
-      'extraHeaders': {
-        'Authorization': 'Bearer $token'
-      }
-    });
-    
-    socket!.connect();
-    
-    socket!.onConnect((_) {
-      print('Connected to socket server');
-      registerUser(userId);
-    });
-    
-    socket!.onDisconnect((_) => print('Disconnected from socket'));
-    
-    socket!.onConnectError((data) => print('Connection Error: $data'));
-    
-    socket!.onError((data) => print('Socket Error: $data'));
-  }
-  
-  void disconnect() {
-    socket?.disconnect();
-    socket?.dispose();
-  }
-}
-```
-
----
-
-## Socket Events Reference
-
-### Client → Server Events (Emit)
-
-#### 1. Register User
 **Event:** `register`
 
-**When:** Immediately after socket connection
+```javascript
+// Call this after user logs in or when app starts
+const registerUser = (userId) => {
+  socket.emit('register', userId);
+};
 
-**Data:**
-```dart
-socket.emit('register', userId);
+// Example usage
+registerUser('507f1f77bcf86cd799439011');
 ```
 
-**Purpose:** Register your user ID with the socket server to receive targeted events
-
-
-#### 3. Active Chat
-**Event:** `activeChat`
-
-**When:** When user opens/closes a chat screen
-
-**Data:**
-```dart
-// When opening chat
-socket.emit('activeChat', {
-  'receiverId': currentUserId,
-  'senderId': chatPartnerId
-});
-
-// When closing chat
-socket.emit('activeChat', {
-  'receiverId': currentUserId,
-  'senderId': null
-});
-```
-
-**Purpose:** Prevents push notifications when user is actively chatting
+**Parameters:**
+- `userId` (String): The MongoDB ObjectId of the logged-in user
 
 ---
 
-#### 4. Send Message
+#### 2. Send Direct Message
+Send a text or image message to another user.
+
 **Event:** `sendMessage`
 
-**When:** Sending a text message in real-time
+```javascript
+const sendMessage = (messageData) => {
+  socket.emit('sendMessage', {
+    senderId: messageData.senderId,
+    receiverId: messageData.receiverId,
+    message: messageData.text,        // Optional if image is provided
+    image: messageData.imageUrl       // Optional if message is provided
+  });
+};
 
-**Data:**
-```dart
-socket.emit('sendMessage', {
-  'senderId': '68be64b2a0db89cc44e43270',
-  'receiverId': '68be6aeba0db89cc44e4328c',
-  'message': 'Hello there!'
+// Example: Text message
+sendMessage({
+  senderId: '507f1f77bcf86cd799439011',
+  receiverId: '507f191e810c19729de860ea',
+  text: 'Hello! How are you?',
+  imageUrl: null
+});
+
+// Example: Image message
+sendMessage({
+  senderId: '507f1f77bcf86cd799439011',
+  receiverId: '507f191e810c19729de860ea',
+  text: 'Check this out!',
+  imageUrl: '/uploads/images/photo-123.jpg'
 });
 ```
 
-**Purpose:** Send text messages instantly via socket connection
+**Parameters:**
+- `senderId` (String): MongoDB ObjectId of the sender
+- `receiverId` (String): MongoDB ObjectId of the receiver
+- `message` (String, optional): Text content of the message
+- `image` (String, optional): URL/path to the image
 
-**Response Events:**
-- Sender receives: `message-sent` (confirmation)
-- Receiver receives: `receiver-{receiverId}` (the actual message)
+**Note:** At least one of `message` or `image` must be provided.
 
-**Important Notes:**
-- Only for **text messages** (no files)
-- For images: Use `POST /message/image` REST API endpoint
-- For audio: Use `POST /message/audio` REST API endpoint
-- Requires mutual connection between users (will fail if no connection exists)
-- Message is saved to database before being sent to receiver
+**Backend Validation:**
+- Checks if users have a mutual connection
+- Returns error if connection doesn't exist
+- Saves message to database before emitting events
 
 ---
 
-#### 5. Mark as Read
+#### 3. Mark Messages as Read
+Mark all unread messages from a specific sender as read.
+
 **Event:** `markAsRead`
 
-**When:** User opens chat and views unread messages
+```javascript
+const markMessagesAsRead = (currentUserId, chatPartnerId) => {
+  socket.emit('markAsRead', {
+    senderId: chatPartnerId,      // The person who sent the messages
+    receiverId: currentUserId     // The current user reading them
+  });
+};
 
-**Data:**
-```dart
-socket.emit('markAsRead', {
-  'senderId': '68be6aeba0db89cc44e4328c',  // Who sent the messages to you
-  'receiverId': '68be64b2a0db89cc44e43270'  // You (who's reading them)
-});
+// Example usage
+markMessagesAsRead('507f1f77bcf86cd799439011', '507f191e810c19729de860ea');
 ```
 
-**Purpose:** Mark all unread messages from a specific user as read
+**Parameters:**
+- `senderId` (String): User ID who sent the messages
+- `receiverId` (String): User ID who is reading the messages
 
-**Response:**
-- Updates all unread messages in database: `isRead: true`, `readAt: timestamp`
-- Sender receives `messages-read` event notification
-
-**When to emit:**
-- When user opens a chat screen
-- When user views messages in the chat
-- Can be called when scrolling through old messages to update read status
+**Backend Action:**
+- Updates all unread messages from sender to receiver
+- Sets `isRead: true` and `readAt: new Date()`
+- Notifies the sender via `messages-read` event
 
 ---
 
-### Server → Client Events (Listen)
+#### 4. Set Active Chat Session
+Track when a user is actively viewing a chat with another user.
 
-#### 1. Online Users
+**Event:** `activeChat`
+
+```javascript
+// When user opens a chat
+const setActiveChat = (currentUserId, chatPartnerId) => {
+  socket.emit('activeChat', {
+    senderId: currentUserId,
+    receiverId: chatPartnerId
+  });
+};
+
+// When user closes/leaves the chat
+const clearActiveChat = (chatPartnerId) => {
+  socket.emit('activeChat', {
+    receiverId: chatPartnerId
+    // Note: Omitting senderId clears the active chat
+  });
+};
+
+// Example usage
+// User opens chat with another user
+setActiveChat('507f1f77bcf86cd799439011', '507f191e810c19729de860ea');
+
+// User closes the chat
+clearActiveChat('507f191e810c19729de860ea');
+```
+
+**Parameters:**
+- `senderId` (String, optional): Current user's ID - presence indicates active chat
+- `receiverId` (String): The chat partner's ID
+
+**Use Case:** Can be used to show typing indicators or prevent duplicate notifications.
+
+---
+
+#### 5. Update FCM Token
+Update the Firebase Cloud Messaging token for push notifications.
+
+**Event:** `updateFcmToken`
+
+```javascript
+const updateFcmToken = (userId, fcmToken) => {
+  socket.emit('updateFcmToken', {
+    userId: userId,
+    fcmToken: fcmToken
+  });
+};
+
+// Example usage
+updateFcmToken('507f1f77bcf86cd799439011', 'fcm_token_xyz123...');
+```
+
+**Parameters:**
+- `userId` (String): User's MongoDB ObjectId
+- `fcmToken` (String): Firebase Cloud Messaging token
+
+**Response Event:** `fcmTokenUpdated`
+
+---
+
+### Server to Client Events
+
+#### 1. Online Users List
+Receive updates when users come online or go offline.
+
 **Event:** `onlineUsers`
 
-**When:** User connects/disconnects, or after you register
-
-**Data:** Array of online user IDs
-```dart
-socket.on('onlineUsers', (data) {
-  List<String> onlineUserIds = List<String>.from(data);
-  print('Online users: $onlineUserIds');
-  // Update UI to show online indicators
+```javascript
+socket.on('onlineUsers', (userIds) => {
+  console.log('Currently online users:', userIds);
+  // userIds is an array of user IDs who are currently online
+  updateOnlineStatus(userIds);
 });
 ```
 
-**Purpose:** Show who's currently online
+**Data Structure:**
+```javascript
+// Example
+['507f1f77bcf86cd799439011', '507f191e810c19729de860ea', '507f1f77bcf86cd799439012']
+```
+
+**Triggered When:**
+- A new user connects and registers
+- A user disconnects
+- Initial connection
 
 ---
 
-#### 2. Receive Message
+#### 2. Receive Direct Message
+Receive incoming messages in real-time.
+
 **Event:** `receiver-{userId}`
 
-**When:** Someone sends you a message
+**Note:** The event name is dynamic and includes your user ID.
 
-**Dynamic Event:** Event name includes your user ID
+```javascript
+const setupMessageListener = (currentUserId) => {
+  socket.on(`receiver-${currentUserId}`, (data) => {
+    console.log('New message received:', data);
+    
+    // Add message to chat UI
+    displayMessage(data);
+    
+    // Auto-mark as read if user is viewing this chat
+    if (isActiveChatWith(data.senderId)) {
+      markMessagesAsRead(currentUserId, data.senderId);
+    }
+    
+    // Show notification if user is not in the chat
+    if (!isActiveChatWith(data.senderId)) {
+      showNotification(data);
+    }
+  });
+};
 
-**Data:**
-```dart
-socket.on('receiver-$myUserId', (data) {
-  Message message = Message.fromJson(data);
-  // {
-  //   "_id": "68c0faee08089cbc8be60e26",
-  //   "senderId": "68be64b2a0db89cc44e43270",
-  //   "receiverId": "68be6aeba0db89cc44e4328c",
-  //   "message": "Hello there!",
-  //   "image": null,      // For single image messages
-  //   "images": [],       // For multiple image messages
-  //   "audio": null,      // For audio messages
-  //   "messageType": "text",  // "text", "image", or "audio"
-  //   "isRead": false,
-  //   "createdAt": "2025-09-10T04:13:34.066Z"
-  // }
-  
-  // Add message to chat
-  // Update UI
-  // Show notification if not in chat
-  // Play notification sound if app is in background
-});
+// Example usage
+setupMessageListener('507f1f77bcf86cd799439011');
 ```
 
-**Purpose:** Receive messages in real-time
-
-**Note:** 
-- Only text messages are sent via socket
-- Image and audio messages should be fetched via REST API after receiving notification
-- The `messageType` field indicates: `text`, `image`, or `audio`
+**Data Structure:**
+```javascript
+{
+  _id: '60d5ec49f1b2c72b8c8e4f3a',
+  senderId: '507f191e810c19729de860ea',
+  receiverId: '507f1f77bcf86cd799439011',
+  message: 'Hello there!',
+  image: null,
+  messageType: 'text',  // 'text' or 'image'
+  isRead: false,
+  createdAt: '2025-10-09T10:30:00.000Z'
+}
+```
 
 ---
 
 #### 3. Message Sent Confirmation
+Confirmation that your message was successfully sent and saved.
+
 **Event:** `message-sent`
 
-**When:** Your message is successfully sent and saved to database
-
-**Data:**
-```dart
-socket.on('message-sent', (data) {
-  // {
-  //   "_id": "68c0faee08089cbc8be60e26",
-  //   "senderId": "68be64b2a0db89cc44e43270",
-  //   "receiverId": "68be6aeba0db89cc44e4328c",
-  //   "message": "Hello there!",
-  //   "image": null,
-  //   "images": [],
-  //   "audio": null,
-  //   "messageType": "text",
-  //   "isRead": false,
-  //   "createdAt": "2025-09-10T04:13:34.066Z",
-  //   "status": "sent"
-  // }
+```javascript
+socket.on('message-sent', (data) => {
+  console.log('Message sent successfully:', data);
   
-  // Update message status to "sent" (single checkmark)
-  // Replace temporary local message with server message (with _id)
-  // Show checkmark in UI
+  // Update message status in UI
+  updateMessageStatus(data._id, 'sent');
+  
+  // Add message to chat window
+  addMessageToChat(data);
 });
 ```
 
-**Purpose:** Confirm message was saved to database and delivered to server
+**Data Structure:**
+```javascript
+{
+  _id: '60d5ec49f1b2c72b8c8e4f3a',
+  senderId: '507f1f77bcf86cd799439011',
+  receiverId: '507f191e810c19729de860ea',
+  message: 'Hello there!',
+  image: null,
+  messageType: 'text',
+  isRead: false,
+  createdAt: '2025-10-09T10:30:00.000Z',
+  status: 'sent'
+}
+```
 
 ---
 
-#### 4. Messages Read
+#### 4. Messages Read Confirmation
+Notification that your sent messages have been read.
+
 **Event:** `messages-read`
 
-**When:** Other user reads your messages (after they emit `markAsRead`)
-
-**Data:**
-```dart
-socket.on('messages-read', (data) {
-  // {
-  //   "senderId": "68be64b2a0db89cc44e43270",  // You (the sender)
-  //   "receiverId": "68be6aeba0db89cc44e4328c",  // The reader
-  //   "isRead": true
-  // }
+```javascript
+socket.on('messages-read', (data) => {
+  console.log('Messages marked as read:', data);
   
-  // Update all messages you sent to this user as "read"
-  // Change single checkmark to double checkmark
-  // Update message status in local database/cache
+  // Update UI to show messages as read (e.g., double check marks)
+  updateMessagesReadStatus(data.senderId, data.receiverId);
 });
 ```
 
-**Purpose:** Show read receipts (double checkmark) when recipient reads your messages
-
-**Note:** This event is triggered when the receiver emits `markAsRead` event
+**Data Structure:**
+```javascript
+{
+  senderId: '507f1f77bcf86cd799439011',
+  receiverId: '507f191e810c19729de860ea',
+  isRead: true
+}
+```
 
 ---
 
-#### 5. Error
+#### 5. FCM Token Update Confirmation
+Confirmation that FCM token was updated successfully.
+
+**Event:** `fcmTokenUpdated`
+
+```javascript
+socket.on('fcmTokenUpdated', (data) => {
+  if (data.success) {
+    console.log('FCM token updated successfully');
+  } else {
+    console.error('Failed to update FCM token:', data.error);
+  }
+});
+```
+
+**Data Structure:**
+```javascript
+// Success
+{ success: true }
+
+// Error
+{ success: false, error: 'Failed to update FCM token' }
+```
+
+---
+
+#### 6. Error Handling
+Handle errors from socket operations.
+
 **Event:** `error`
 
-**When:** Something goes wrong with socket operation (validation error, server error, etc.)
-
-**Data:**
-```dart
-socket.on('error', (data) {
-  // {
-  //   "message": "Invalid message data" 
-  //   // OR
-  //   "message": "Failed to send message"
-  //   // OR
-  //   "message": "Failed to mark messages as read"
-  // }
+```javascript
+socket.on('error', (error) => {
+  console.error('Socket error:', error);
   
-  print('Socket error: ${data['message']}');
   // Show user-friendly error message
-  // Log error for debugging
+  if (error.message === 'Invalid message data') {
+    showToast('Please provide a message or image');
+  } else if (error.message === 'Failed to send message') {
+    showToast('Failed to send message. Please try again.');
+  } else if (error.message === 'Failed to mark messages as read') {
+    console.error('Read receipt error:', error);
+  }
 });
 ```
 
-**Common error messages:**
+**Possible Error Messages:**
 - `"Invalid message data"` - Missing required fields in sendMessage
-- `"Failed to send message"` - Database or connection error
-- `"Failed to mark messages as read"` - Database error
-- `"No mutual connection found between users"` - Users not matched
-
-**Purpose:** Handle errors gracefully and inform user of issues
+- `"Failed to send message"` - Server error while processing message
+- `"Failed to mark messages as read"` - Server error while updating read status
 
 ---
 
-## Complete Flutter Implementation Example
+## REST API Endpoints
 
-```dart
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+### 1. Get Messages Between Two Users
 
-class SocketService {
-  static final SocketService _instance = SocketService._internal();
-  factory SocketService() => _instance;
-  SocketService._internal();
+**Endpoint:** `GET /api/message/messages`
 
-  IO.Socket? socket;
-  String? currentUserId;
-  
-  // Callbacks
-  Function(List<String>)? onOnlineUsersUpdate;
-  Function(Map<String, dynamic>)? onMessageReceived;
-  Function(Map<String, dynamic>)? onMessageSent;
-  Function(Map<String, dynamic>)? onMessagesRead;
+**Query Parameters:**
+- `senderId` (required): ID of one user
+- `receiverId` (required): ID of the other user
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Results per page (default: 50)
 
-  void connect(String userId, String token) {
-    currentUserId = userId;
-    
-    socket = IO.io(
-      'https://your-api-domain.com',
-      IO.OptionBuilder()
-          .setTransports(['websocket'])
-          .disableAutoConnect()
-          .setExtraHeaders({'Authorization': 'Bearer $token'})
-          .build(),
-    );
-
-    socket!.connect();
-    
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    socket!.onConnect((_) {
-      print('✅ Connected to socket');
-      if (currentUserId != null) {
-        registerUser(currentUserId!);
+**Example Request:**
+```javascript
+const getMessages = async (senderId, receiverId, page = 1, limit = 50) => {
+  const response = await fetch(
+    `http://localhost:5000/api/message/messages?senderId=${senderId}&receiverId=${receiverId}&page=${page}&limit=${limit}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
       }
-    });
+    }
+  );
+  return response.json();
+};
 
-    socket!.onDisconnect((_) {
-      print('❌ Disconnected from socket');
-    });
+// Usage
+const messages = await getMessages(
+  '507f1f77bcf86cd799439011',
+  '507f191e810c19729de860ea',
+  1,
+  50
+);
+```
 
-    socket!.on('onlineUsers', (data) {
-      List<String> onlineUsers = List<String>.from(data);
-      onOnlineUsersUpdate?.call(onlineUsers);
-    });
-
-    socket!.on('receiver-$currentUserId', (data) {
-      onMessageReceived?.call(Map<String, dynamic>.from(data));
-    });
-
-    socket!.on('message-sent', (data) {
-      onMessageSent?.call(Map<String, dynamic>.from(data));
-    });
-
-    socket!.on('messages-read', (data) {
-      onMessagesRead?.call(Map<String, dynamic>.from(data));
-    });
-
-    socket!.on('error', (data) {
-      print('Socket error: $data');
-    });
-  }
-
-  void registerUser(String userId) {
-    socket?.emit('register', userId);
-  }
-
-  void updateFCMToken(String userId, String fcmToken) {
-    socket?.emit('updateFcmToken', {
-      'userId': userId,
-      'fcmToken': fcmToken,
-    });
-  }
-
-  void setActiveChat(String receiverId, String? chatPartnerId) {
-    socket?.emit('activeChat', {
-      'receiverId': receiverId,
-      'senderId': chatPartnerId,
-    });
-  }
-
-  void sendMessage({
-    required String senderId,
-    required String receiverId,
-    required String message,
-  }) {
-    socket?.emit('sendMessage', {
-      'senderId': senderId,
-      'receiverId': receiverId,
-      'message': message,
-    });
-  }
-
-  void markAsRead({
-    required String senderId,
-    required String receiverId,
-  }) {
-    socket?.emit('markAsRead', {
-      'senderId': senderId,
-      'receiverId': receiverId,
-    });
-  }
-
-  void disconnect() {
-    socket?.disconnect();
-    socket?.dispose();
-    socket = null;
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "60d5ec49f1b2c72b8c8e4f3a",
+      "sender": {
+        "_id": "507f1f77bcf86cd799439011",
+        "firstName": "John",
+        "lastName": "Doe",
+        "image": "/uploads/images/user1.jpg"
+      },
+      "receiver": {
+        "_id": "507f191e810c19729de860ea",
+        "firstName": "Jane",
+        "lastName": "Smith",
+        "image": "/uploads/images/user2.jpg"
+      },
+      "message": "Hello there!",
+      "image": null,
+      "messageType": "text",
+      "isRead": true,
+      "readAt": "2025-10-09T10:35:00.000Z",
+      "createdAt": "2025-10-09T10:30:00.000Z",
+      "updatedAt": "2025-10-09T10:35:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 50,
+    "total": 25,
+    "totalPage": 1
   }
 }
 ```
 
 ---
 
-## Usage in Flutter App
+### 2. Send Message with Image
 
-### 1. Initialize on Login
-```dart
-void onLoginSuccess(String userId, String token) {
-  SocketService().connect(userId, token);
+**Endpoint:** `POST /api/message/message-with-image`
+
+**Content-Type:** `multipart/form-data`
+
+**Fields:**
+- `data` (JSON string): `{ senderId, receiverId, message }`
+- `image` (File): Image file to upload
+
+**Example Request:**
+```javascript
+const sendMessageWithImage = async (senderId, receiverId, message, imageFile) => {
+  const formData = new FormData();
   
-  // Set up callbacks
-  SocketService().onOnlineUsersUpdate = (users) {
-    setState(() {
-      onlineUserIds = users;
-    });
-  };
+  // Add JSON data
+  formData.append('data', JSON.stringify({
+    senderId,
+    receiverId,
+    message
+  }));
   
-  SocketService().onMessageReceived = (data) {
-    // Handle new message
-    handleNewMessage(Message.fromJson(data));
-  };
-}
-```
-
-### 2. Send Message in Chat
-```dart
-void sendMessage(String message) {
-  SocketService().sendMessage(
-    senderId: currentUserId,
-    receiverId: chatPartnerId,
-    message: message,
-  );
-}
-```
-
-### 3. Mark Messages as Read
-```dart
-@override
-void initState() {
-  super.initState();
-  // Mark as read when opening chat
-  SocketService().markAsRead(
-    senderId: chatPartnerId,
-    receiverId: currentUserId,
-  );
+  // Add image file
+  formData.append('image', imageFile);
   
-  // Set active chat
-  SocketService().setActiveChat(currentUserId, chatPartnerId);
-}
+  const response = await fetch('http://localhost:5000/api/message/message-with-image', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${authToken}`
+    },
+    body: formData
+  });
+  
+  return response.json();
+};
 
-@override
-void dispose() {
-  // Clear active chat
-  SocketService().setActiveChat(currentUserId, null);
-  super.dispose();
-}
-```
-
-### 4. Show Online Status
-```dart
-bool isUserOnline(String userId) {
-  return onlineUserIds.contains(userId);
-}
-
-Widget buildOnlineIndicator(String userId) {
-  return Container(
-    width: 12,
-    height: 12,
-    decoration: BoxDecoration(
-      color: isUserOnline(userId) ? Colors.green : Colors.grey,
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white, width: 2),
-    ),
+// Usage with file input
+const handleImageUpload = async (event) => {
+  const file = event.target.files[0];
+  const result = await sendMessageWithImage(
+    '507f1f77bcf86cd799439011',
+    '507f191e810c19729de860ea',
+    'Check out this image!',
+    file
   );
-}
+};
 ```
 
-### 5. Disconnect on Logout
-```dart
-void logout() {
-  SocketService().disconnect();
-  // Clear user data
-  // Navigate to login
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Message created successfully",
+  "data": {
+    "_id": "60d5ec49f1b2c72b8c8e4f3a",
+    "sender": "507f1f77bcf86cd799439011",
+    "receiver": "507f191e810c19729de860ea",
+    "message": "Check out this image!",
+    "image": "/uploads/images/photo-xyz123.jpg",
+    "messageType": "image",
+    "isRead": false,
+    "createdAt": "2025-10-09T10:30:00.000Z"
+  }
 }
 ```
 
 ---
 
-## Important Notes
+## Complete Implementation Examples
 
-### 1. Connection Lifecycle
-- Connect after successful login
-- Disconnect on logout
-- Auto-reconnect on connection loss (handled by socket.io-client)
-- Register user immediately after connection
+### React Implementation
 
-### 2. Message Types
-- **Text messages:** Can use Socket.IO or REST API
-- **Image messages:** Must use REST API (`POST /message/image`)
-- **Audio messages:** Must use REST API (`POST /message/audio`)
+#### 1. Socket Hook Setup
 
-### 3. Active Chat
-- Emit `activeChat` when entering chat screen
-- Clear (send null) when leaving chat screen
-- Prevents unnecessary push notifications
-- Improves user experience
+```javascript
+// hooks/useSocket.js
+import { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 
-### 4. Read Receipts
-- Mark messages as read when user opens chat
-- Listen to `messages-read` event for double checkmarks
-- Update UI to show read status (single vs double checkmark)
-- `readAt` timestamp is stored in database for each message
+const SOCKET_URL = 'http://localhost:5000';
 
-### 5. Blocked Users
-- Cannot send messages to blocked users
-- Chat list automatically filters out blocked users
-- API returns 403 error: "Cannot access chat with blocked user"
-- Socket connections won't receive messages from blocked users
-- Check block status before attempting to send messages
+export const useSocket = (userId) => {
+  const socketRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState([]);
 
-### 6. Online Status
-- Updates automatically when users connect/disconnect
-- Use for showing green dot indicators
-- Cache online status in app state
-- Update UI reactively
+  useEffect(() => {
+    if (!userId) return;
 
-### 6. Error Handling
-- Always listen to `error` event
-- Show user-friendly error messages
-- Retry failed operations
-- Handle connection errors gracefully
+    // Initialize socket connection
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
 
-### 7. Performance
-- Don't emit events too frequently
-- Batch read receipts when possible
-- Use efficient state management
-- Avoid rebuilding entire chat on each message
+    const socket = socketRef.current;
 
-### 8. Security
-- Always include JWT token in connection
-- Validate user permissions on server
-- Never trust client-side data
-- Use HTTPS/WSS in production
+    // Connection handlers
+    socket.on('connect', () => {
+      console.log('Connected to socket server');
+      setIsConnected(true);
+      
+      // Register user as online
+      socket.emit('register', userId);
+    });
 
-### 9. Testing
-- Test with slow/unstable network
-- Test connection loss and recovery
-- Test with multiple devices
-- Test background/foreground transitions
+    socket.on('disconnect', () => {
+      console.log('Disconnected from socket server');
+      setIsConnected(false);
+    });
 
-### 10. Background Handling
-- Socket may disconnect in background
-- Use FCM push notifications for background messages
-- Reconnect when app comes to foreground
-- Sync messages on reconnection
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      setIsConnected(false);
+    });
+
+    // Online users handler
+    socket.on('onlineUsers', (users) => {
+      setOnlineUsers(users);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, [userId]);
+
+  return {
+    socket: socketRef.current,
+    isConnected,
+    onlineUsers
+  };
+};
+```
+
+---
+
+#### 2. Chat Component
+
+```javascript
+// components/ChatWindow.jsx
+import React, { useEffect, useState, useRef } from 'react';
+import { useSocket } from '../hooks/useSocket';
+
+const ChatWindow = ({ currentUserId, chatPartnerId, chatPartnerName }) => {
+  const { socket, isConnected, onlineUsers } = useSocket(currentUserId);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const isPartnerOnline = onlineUsers.includes(chatPartnerId);
+
+  // Load chat history on mount
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:5000/api/message/messages?senderId=${currentUserId}&receiverId=${chatPartnerId}&page=1&limit=100`,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        const data = await response.json();
+        if (data.success) {
+          setMessages(data.data);
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    };
+
+    if (currentUserId && chatPartnerId) {
+      loadMessages();
+    }
+  }, [currentUserId, chatPartnerId]);
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    // Set active chat
+    socket.emit('activeChat', {
+      senderId: currentUserId,
+      receiverId: chatPartnerId
+    });
+
+    // Listen for incoming messages
+    const handleIncomingMessage = (data) => {
+      if (data.senderId === chatPartnerId) {
+        setMessages(prev => [...prev, data]);
+        
+        // Auto-mark as read since chat is active
+        socket.emit('markAsRead', {
+          senderId: chatPartnerId,
+          receiverId: currentUserId
+        });
+
+        // Scroll to bottom
+        scrollToBottom();
+      }
+    };
+
+    // Listen for message sent confirmation
+    const handleMessageSent = (data) => {
+      // Update message status in UI if needed
+      console.log('Message sent:', data);
+    };
+
+    // Listen for messages read confirmation
+    const handleMessagesRead = (data) => {
+      if (data.receiverId === chatPartnerId) {
+        // Update all messages from current user to partner as read
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.senderId === currentUserId && msg.receiverId === chatPartnerId
+              ? { ...msg, isRead: true }
+              : msg
+          )
+        );
+      }
+    };
+
+    // Error handler
+    const handleError = (error) => {
+      console.error('Socket error:', error);
+      alert(error.message || 'An error occurred');
+    };
+
+    socket.on(`receiver-${currentUserId}`, handleIncomingMessage);
+    socket.on('message-sent', handleMessageSent);
+    socket.on('messages-read', handleMessagesRead);
+    socket.on('error', handleError);
+
+    // Mark existing unread messages as read
+    socket.emit('markAsRead', {
+      senderId: chatPartnerId,
+      receiverId: currentUserId
+    });
+
+    // Cleanup
+    return () => {
+      socket.off(`receiver-${currentUserId}`, handleIncomingMessage);
+      socket.off('message-sent', handleMessageSent);
+      socket.off('messages-read', handleMessagesRead);
+      socket.off('error', handleError);
+      
+      // Clear active chat
+      socket.emit('activeChat', {
+        receiverId: chatPartnerId
+      });
+    };
+  }, [socket, currentUserId, chatPartnerId]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const sendMessage = () => {
+    if (!newMessage.trim() || !socket || isSending) return;
+
+    setIsSending(true);
+
+    socket.emit('sendMessage', {
+      senderId: currentUserId,
+      receiverId: chatPartnerId,
+      message: newMessage.trim(),
+      image: null
+    });
+
+    setNewMessage('');
+    setIsSending(false);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <div className="chat-window">
+      {/* Header */}
+      <div className="chat-header">
+        <h3>{chatPartnerName}</h3>
+        <span className={`status ${isPartnerOnline ? 'online' : 'offline'}`}>
+          {isPartnerOnline ? 'Online' : 'Offline'}
+        </span>
+      </div>
+
+      {/* Messages */}
+      <div className="messages-container">
+        {messages.map((msg, index) => (
+          <div
+            key={msg._id || index}
+            className={`message ${msg.senderId === currentUserId ? 'sent' : 'received'}`}
+          >
+            {msg.image && (
+              <img src={`http://localhost:5000${msg.image}`} alt="Message" />
+            )}
+            {msg.message && <p>{msg.message}</p>}
+            <div className="message-meta">
+              <span className="time">
+                {new Date(msg.createdAt).toLocaleTimeString()}
+              </span>
+              {msg.senderId === currentUserId && (
+                <span className={`read-status ${msg.isRead ? 'read' : 'unread'}`}>
+                  {msg.isRead ? '✓✓' : '✓'}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="message-input">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Type a message..."
+          disabled={!isConnected || isSending}
+        />
+        <button 
+          onClick={sendMessage}
+          disabled={!isConnected || isSending || !newMessage.trim()}
+        >
+          Send
+        </button>
+      </div>
+
+      {!isConnected && (
+        <div className="connection-status">
+          Connecting to server...
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChatWindow;
+```
+
+---
+
+#### 3. Image Message Component
+
+```javascript
+// components/ImageMessageSender.jsx
+import React, { useState } from 'react';
+
+const ImageMessageSender = ({ currentUserId, chatPartnerId, onImageSent }) => {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [caption, setCaption] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (e.g., max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const sendImageMessage = async () => {
+    if (!selectedFile || uploading) return;
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('data', JSON.stringify({
+        senderId: currentUserId,
+        receiverId: chatPartnerId,
+        message: caption
+      }));
+      formData.append('image', selectedFile);
+
+      const response = await fetch('http://localhost:5000/api/message/message-with-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Reset form
+        setSelectedFile(null);
+        setCaption('');
+        setPreview(null);
+        
+        // Notify parent component
+        if (onImageSent) {
+          onImageSent(data.data);
+        }
+      } else {
+        alert('Failed to send image');
+      }
+    } catch (error) {
+      console.error('Error sending image:', error);
+      alert('Failed to send image. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const cancelSelection = () => {
+    setSelectedFile(null);
+    setCaption('');
+    setPreview(null);
+  };
+
+  return (
+    <div className="image-sender">
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+        id="image-upload"
+      />
+      
+      {!preview ? (
+        <label htmlFor="image-upload" className="upload-button">
+          📷 Send Image
+        </label>
+      ) : (
+        <div className="image-preview">
+          <img src={preview} alt="Preview" />
+          <input
+            type="text"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Add a caption (optional)..."
+          />
+          <div className="actions">
+            <button onClick={cancelSelection} disabled={uploading}>
+              Cancel
+            </button>
+            <button onClick={sendImageMessage} disabled={uploading}>
+              {uploading ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ImageMessageSender;
+```
+
+---
+
+### Vue.js Implementation
+
+#### 1. Socket Composable
+
+```javascript
+// composables/useSocket.js
+import { ref, onMounted, onUnmounted } from 'vue';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = 'http://localhost:5000';
+
+export function useSocket(userId) {
+  const socket = ref(null);
+  const isConnected = ref(false);
+  const onlineUsers = ref([]);
+
+  const connect = () => {
+    if (!userId.value) return;
+
+    socket.value = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
+
+    socket.value.on('connect', () => {
+      console.log('Connected to socket server');
+      isConnected.value = true;
+      socket.value.emit('register', userId.value);
+    });
+
+    socket.value.on('disconnect', () => {
+      console.log('Disconnected from socket server');
+      isConnected.value = false;
+    });
+
+    socket.value.on('onlineUsers', (users) => {
+      onlineUsers.value = users;
+    });
+  };
+
+  const disconnect = () => {
+    if (socket.value) {
+      socket.value.disconnect();
+    }
+  };
+
+  onMounted(() => {
+    connect();
+  });
+
+  onUnmounted(() => {
+    disconnect();
+  });
+
+  return {
+    socket,
+    isConnected,
+    onlineUsers,
+    connect,
+    disconnect
+  };
+}
+```
+
+---
+
+### Vanilla JavaScript Implementation
+
+```javascript
+// socket-manager.js
+class SocketManager {
+  constructor(serverUrl) {
+    this.serverUrl = serverUrl;
+    this.socket = null;
+    this.isConnected = false;
+    this.onlineUsers = [];
+    this.messageHandlers = [];
+  }
+
+  connect(userId) {
+    this.socket = io(this.serverUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
+
+    this.socket.on('connect', () => {
+      console.log('Connected to server');
+      this.isConnected = true;
+      this.socket.emit('register', userId);
+      this.onConnectionChange(true);
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+      this.isConnected = false;
+      this.onConnectionChange(false);
+    });
+
+    this.socket.on('onlineUsers', (users) => {
+      this.onlineUsers = users;
+      this.onOnlineUsersChange(users);
+    });
+
+    this.socket.on(`receiver-${userId}`, (data) => {
+      this.messageHandlers.forEach(handler => handler(data));
+    });
+
+    this.socket.on('message-sent', (data) => {
+      console.log('Message sent:', data);
+    });
+
+    this.socket.on('messages-read', (data) => {
+      console.log('Messages read:', data);
+    });
+
+    this.socket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+  }
+
+  sendMessage(senderId, receiverId, message, image = null) {
+    if (!this.socket || !this.isConnected) {
+      console.error('Socket not connected');
+      return;
+    }
+
+    this.socket.emit('sendMessage', {
+      senderId,
+      receiverId,
+      message,
+      image
+    });
+  }
+
+  markAsRead(senderId, receiverId) {
+    if (!this.socket) return;
+    
+    this.socket.emit('markAsRead', {
+      senderId,
+      receiverId
+    });
+  }
+
+  setActiveChat(currentUserId, chatPartnerId) {
+    if (!this.socket) return;
+    
+    this.socket.emit('activeChat', {
+      senderId: currentUserId,
+      receiverId: chatPartnerId
+    });
+  }
+
+  clearActiveChat(chatPartnerId) {
+    if (!this.socket) return;
+    
+    this.socket.emit('activeChat', {
+      receiverId: chatPartnerId
+    });
+  }
+
+  onMessage(handler) {
+    this.messageHandlers.push(handler);
+  }
+
+  onConnectionChange(handler) {
+    this.connectionChangeHandler = handler;
+  }
+
+  onOnlineUsersChange(handler) {
+    this.onlineUsersHandler = handler;
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+    }
+  }
+}
+
+// Usage
+const socketManager = new SocketManager('http://localhost:5000');
+socketManager.connect('507f1f77bcf86cd799439011');
+
+socketManager.onMessage((data) => {
+  console.log('New message:', data);
+  // Update UI
+});
+
+socketManager.onOnlineUsersChange((users) => {
+  console.log('Online users:', users);
+  // Update UI
+});
+
+// Send message
+socketManager.sendMessage(
+  '507f1f77bcf86cd799439011',
+  '507f191e810c19729de860ea',
+  'Hello!'
+);
+```
+
+---
+
+## Best Practices
+
+### 1. Connection Management
+```javascript
+// Always check connection status before emitting
+if (socket && socket.connected) {
+  socket.emit('sendMessage', data);
+} else {
+  console.error('Socket not connected');
+  // Queue message or show error to user
+}
+```
+
+### 2. Error Handling
+```javascript
+// Implement comprehensive error handling
+socket.on('error', (error) => {
+  // Log error for debugging
+  console.error('Socket error:', error);
+  
+  // Show user-friendly message
+  showNotification('Failed to send message. Please try again.');
+  
+  // Optionally retry or queue the action
+});
+```
+
+### 3. Reconnection Strategy
+```javascript
+socket.on('reconnect', (attemptNumber) => {
+  console.log('Reconnected after', attemptNumber, 'attempts');
+  
+  // Re-register user
+  socket.emit('register', userId);
+  
+  // Refresh data that might have changed
+  loadRecentMessages();
+});
+
+socket.on('reconnect_failed', () => {
+  console.error('Failed to reconnect');
+  showNotification('Connection lost. Please refresh the page.');
+});
+```
+
+### 4. Memory Management
+```javascript
+// Always clean up event listeners
+useEffect(() => {
+  const handleMessage = (data) => {
+    // Handle message
+  };
+  
+  socket.on(`receiver-${userId}`, handleMessage);
+  
+  return () => {
+    // Cleanup
+    socket.off(`receiver-${userId}`, handleMessage);
+  };
+}, [socket, userId]);
+```
+
+### 5. Active Chat Management
+```javascript
+// Set active chat when opening chat window
+useEffect(() => {
+  if (chatPartnerId) {
+    socket.emit('activeChat', {
+      senderId: currentUserId,
+      receiverId: chatPartnerId
+    });
+    
+    return () => {
+      // Clear when leaving chat
+      socket.emit('activeChat', {
+        receiverId: chatPartnerId
+      });
+    };
+  }
+}, [chatPartnerId]);
+```
 
 ---
 
 ## Troubleshooting
 
 ### Connection Issues
-```dart
-// Check connection status
-print('Socket connected: ${socket?.connected}');
-
-// Manual reconnect
-socket?.connect();
+```javascript
+// Check if socket is connecting
+socket.on('connect_error', (error) => {
+  console.error('Connection failed:', error);
+  // Check CORS settings
+  // Verify server URL
+  // Check network connectivity
+});
 ```
 
 ### Messages Not Receiving
 - Verify user is registered: `socket.emit('register', userId)`
-- Check event name matches: `receiver-{yourUserId}`
+- Check event name matches: `receiver-${userId}`
 - Ensure mutual connection exists between users
-- Check server logs for errors
+- Check console for errors
 
-### Read Receipts Not Working
-- Verify `senderId` is the message sender (not you)
-- Verify `receiverId` is you (the reader)
-- Check if messages-read event is properly listened to
-- Ensure socket is connected
-
-### Blocked User Errors
-- Error 403: "Cannot access chat with blocked user"
-- Check if users have blocked each other
-- Blocked users won't appear in chat list
-- Socket won't deliver messages between blocked users
-- Handle block/unblock functionality gracefully in UI
+### Messages Not Sending
+- Verify both `senderId` and `receiverId` are provided
+- Ensure at least one of `message` or `image` is provided
+- Check if users have mutual connection
+- Monitor `error` event for specific issues
 
 ---
 
-## Production Checklist
+## Security Considerations
 
-- [ ] Use WSS (secure WebSocket) in production
-- [ ] Include JWT token in connection
-- [ ] Handle reconnection automatically
-- [ ] Implement offline message queue
-- [ ] Add connection status indicator in UI
-- [ ] Test on real devices and networks
-- [ ] Implement proper error handling
-- [ ] Add logging for debugging
-- [ ] Test with multiple concurrent users
-- [ ] Monitor socket connection in analytics
+1. **Authentication**: Always include authentication token in REST API requests
+2. **Validation**: Backend validates all socket events and checks user permissions
+3. **Connection Check**: Backend verifies mutual connection before allowing messages
+4. **Data Sanitization**: Sanitize user input before displaying
+5. **Rate Limiting**: Consider implementing rate limiting for message sending
+
+---
+
+## Additional Resources
+
+- [Socket.IO Client Documentation](https://socket.io/docs/v4/client-api/)
+- [React Socket.IO Integration](https://socket.io/how-to/use-with-react)
+- [Vue Socket.IO Integration](https://socket.io/how-to/use-with-vue)
 
 ---
 
 ## Support
 
-For Socket.IO Flutter package documentation:
-https://pub.dev/packages/socket_io_client
+For issues or questions:
+1. Check this documentation first
+2. Review console logs for error messages
+3. Verify backend server is running
+4. Check network connectivity
+5. Contact backend team for server-side issues
 
-For backend implementation details, check:
-`src/socket/socket.ts` in the backend repository
+---
+
+**Last Updated:** October 9, 2025
+**Version:** 1.0.0
