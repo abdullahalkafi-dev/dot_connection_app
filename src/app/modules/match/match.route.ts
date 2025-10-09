@@ -45,11 +45,11 @@ router.get(
 );
 
 // Get match history
-router.get(
-  "/history",
-  auth(USER_ROLES.USER, USER_ROLES.ADMIN),
-  MatchController.getMatchHistory
-);
+// router.get(
+//   "/history",
+//   auth(USER_ROLES.USER, USER_ROLES.ADMIN),
+//   MatchController.getMatchHistory
+// );
 
 // Get sent requests
 router.get(

@@ -26,23 +26,62 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "_id": "user_id",
-      "firstName": "Jane",
-      "age": 28,
-      "profile": {
-        "bio": "...",
-        "photos": [...],
-        "interests": [...]
-      }
-    }
-  ],
+  "message": "Potential matches retrieved successfully",
   "meta": {
     "page": 1,
     "limit": 10,
-    "total": 50
-  }
+    "total": 2,
+    "totalPage": 1
+  },
+  "data": [
+    {
+      "_id": "68be7282a0db89cc44e432d6",
+      "email": "user8@example.com",
+      "image": null,
+      "phoneNumber": null,
+      "lastLoginAt": "2025-09-08T06:07:23.096Z",
+      "dateOfBirth": "2001-03-28T00:00:00.000Z",
+      "firstName": "Lina",
+      "lastName": "Rahman",
+      "profile": {
+        "_id": "68be741b610226cf5ddbbbf6",
+        "userId": "68be7282a0db89cc44e432d6",
+        "bio": "Test user 9",
+        "gender": "male",
+        "interests": [
+          "fitness",
+          "movies",
+          "travel"
+        ],
+        "jobTitle": "Developer"
+      }
+    },
+    {
+      "_id": "68be743da0db89cc44e432e4",
+      "email": "user9@example.com",
+      "image": null,
+      "phoneNumber": null,
+      "lastLoginAt": "2025-09-08T06:14:50.424Z",
+      "dateOfBirth": "1994-07-10T00:00:00.000Z",
+      "firstName": "Sam",
+      "lastName": "Taylor",
+      "profile": {
+        "_id": "68be950f610226cf5ddbc8db",
+        "userId": "68be743da0db89cc44e432e4",
+        "bio": "Test user 9",
+        "gender": "male",
+        "interests": [
+          "fitness",
+          "photography",
+          "travel"
+        ],
+        "jobTitle": "Developer",
+        "hiddenFields": {
+          "school": false
+        }
+      }
+    }
+  ]
 }
 ```
 
@@ -60,30 +99,48 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 - **Note:** `action` can be "skip" or "love"
-- **Success Response (Match):**
+- **Success Response (Mutual Match - Both users loved each other):**
 ```json
 {
   "success": true,
-  "message": "It's a match! 🎉",
+  "message": "It's a match! 🎉 Connection created automatically",
   "data": {
     "isMatch": true,
-    "message": "It's a match! 🎉"
+    "connection": {
+      "userIds": [
+        "68be6aeba0db89cc44e4328c",
+        "68be64b2a0db89cc44e43270"
+      ],
+      "_id": "68bfb443309c7bb4c611f393",
+      "createdAt": "2025-09-09T04:59:47.224Z",
+      "updatedAt": "2025-09-09T04:59:47.224Z"
+    }
   }
 }
 ```
-- **Success Response (No Match):**
+- **Success Response (Love Sent - Waiting for their response):**
 ```json
 {
   "success": true,
   "message": "Love sent! Waiting for their response ❤️",
   "data": {
     "connectionRequest": {
-      "_id": "request_id",
-      "fromUserId": "your_id",
-      "toUserId": "their_id",
-      "status": "pending"
+      "fromUserId": "68be64b2a0db89cc44e43270",
+      "toUserId": "68be7282a0db89cc44e432d6",
+      "status": "pending",
+      "_id": "68bfad208ec44ff5c24be206",
+      "createdAt": "2025-09-09T04:29:20.379Z",
+      "updatedAt": "2025-09-09T04:29:20.379Z"
     }
   }
+}
+```
+- **Success Response (Skip Action):**
+```json
+{
+  "success": true,
+  "message": "Action 'skip' performed successfully",
+  "data": {}
 }
 ```
 
@@ -97,16 +154,28 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
+  "message": "Connection requests retrieved successfully",
+  "meta": {
+    "page": 1,
+    "limit": 9999,
+    "total": 1,
+    "totalPage": 1
+  },
   "data": [
     {
-      "_id": "request_id",
+      "_id": "68bfba00309c7bb4c611f3a9",
       "fromUserId": {
-        "_id": "user_id",
+        "_id": "68be64b2a0db89cc44e43270",
+        "image": null,
+        "verified": true,
         "firstName": "John",
-        "profile": { ... }
+        "lastName": "Doe",
+        "fullName": "John Doe"
       },
+      "toUserId": "68be6aeba0db89cc44e4328c",
       "status": "pending",
-      "createdAt": "2025-01-01T10:00:00Z"
+      "createdAt": "2025-09-09T05:24:16.109Z",
+      "updatedAt": "2025-09-09T05:24:16.109Z"
     }
   ]
 }
@@ -119,7 +188,7 @@ Authorization: Bearer <your_jwt_token>
 - **Description:** Accept or reject a connection request
 - **Auth Required:** Yes
 - **URL Parameter:**
-  - `requestId` - Request ID
+  - `requestId` - Request ID (e.g., 68bfba00309c7bb4c611f3a9)
 - **Body:**
 ```json
 {
@@ -131,10 +200,18 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
-  "message": "Request accepted successfully",
+  "message": "Connection request accepted! 🎉",
   "data": {
-    "_id": "request_id",
-    "status": "accepted"
+    "message": "Connection request accepted! 🎉",
+    "connection": {
+      "userIds": [
+        "68be64b2a0db89cc44e43270",
+        "68be6aeba0db89cc44e4328c"
+      ],
+      "_id": "68bfc125309c7bb4c611f3bd",
+      "createdAt": "2025-09-09T05:54:45.519Z",
+      "updatedAt": "2025-09-09T05:54:45.519Z"
+    }
   }
 }
 ```
@@ -149,13 +226,36 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
+  "message": "Connections retrieved successfully",
+  "meta": {
+    "page": 1,
+    "limit": 9999,
+    "total": 1,
+    "totalPage": 1
+  },
   "data": [
     {
-      "_id": "user_id",
-      "firstName": "Jane",
-      "lastName": "Smith",
-      "profile": { ... },
-      "matchedAt": "2025-01-01T10:00:00Z"
+      "_id": "68bfc125309c7bb4c611f3bd",
+      "userIds": [
+        {
+          "_id": "68be64b2a0db89cc44e43270",
+          "image": null,
+          "verified": true,
+          "firstName": "John",
+          "lastName": "Doe",
+          "fullName": "John Doe"
+        },
+        {
+          "_id": "68be6aeba0db89cc44e4328c",
+          "image": null,
+          "verified": true,
+          "firstName": "Rahim",
+          "lastName": "Khan",
+          "fullName": "Rahim Khan"
+        }
+      ],
+      "createdAt": "2025-09-09T05:54:45.519Z",
+      "updatedAt": "2025-09-09T05:54:45.519Z"
     }
   ]
 }
@@ -163,31 +263,7 @@ Authorization: Bearer <your_jwt_token>
 
 ---
 
-### 2.6 Get Match History
-- **Endpoint:** `GET /match/history`
-- **Description:** Get your swipe history (all actions)
-- **Auth Required:** Yes
-- **Success Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "_id": "history_id",
-      "toUserId": {
-        "_id": "user_id",
-        "firstName": "Jane"
-      },
-      "action": "love",
-      "createdAt": "2025-01-01T10:00:00Z"
-    }
-  ]
-}
-```
-
----
-
-### 2.7 Get Sent Requests
+### 2.6 Get Sent Requests
 - **Endpoint:** `GET /match/sent-requests`
 - **Description:** Get all connection requests you sent
 - **Auth Required:** Yes
@@ -195,15 +271,28 @@ Authorization: Bearer <your_jwt_token>
 ```json
 {
   "success": true,
+  "message": "Sent requests retrieved successfully",
+  "meta": {
+    "page": 1,
+    "limit": 9999,
+    "total": 1,
+    "totalPage": 1
+  },
   "data": [
     {
-      "_id": "request_id",
+      "_id": "68bfba00309c7bb4c611f3a9",
+      "fromUserId": "68be64b2a0db89cc44e43270",
       "toUserId": {
-        "_id": "user_id",
-        "firstName": "Jane"
+        "_id": "68be6aeba0db89cc44e4328c",
+        "image": null,
+        "verified": true,
+        "firstName": "Rahim",
+        "lastName": "Khan",
+        "fullName": "Rahim Khan"
       },
       "status": "pending",
-      "createdAt": "2025-01-01T10:00:00Z"
+      "createdAt": "2025-09-09T05:24:16.109Z",
+      "updatedAt": "2025-09-09T05:24:16.109Z"
     }
   ]
 }

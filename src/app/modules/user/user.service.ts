@@ -633,6 +633,8 @@ const getNearbyUsers = async (
       $match: {
         "user.status": "active", // Only active users
         "user.verified": true, // Only verified users
+        "user.allProfileFieldsFilled": true, // Only users with complete profiles
+        "user.allUserFieldsFilled": true, // Only users with complete user fields
       },
     },
     {

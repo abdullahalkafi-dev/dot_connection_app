@@ -75,10 +75,25 @@ const getPotentialMatches = async (
         ],
       },
     },
-    // Remove authentication field
+    // Project only required fields
     {
       $project: {
-        authentication: 0,
+        _id: 1,
+        email: 1,
+        image: 1,
+        phoneNumber: 1,
+        dateOfBirth: 1,
+        firstName: 1,
+        lastName: 1,
+        lastLoginAt: 1,
+        // Only include specific profile fields
+        "profile._id": 1,
+        "profile.userId": 1,
+        "profile.bio": 1,
+        "profile.gender": 1,
+        "profile.interests": 1,
+        "profile.jobTitle": 1,
+        "profile.hiddenFields": 1,
       },
     },
   ];
@@ -119,10 +134,22 @@ const getPotentialMatches = async (
   }
 
   // Execute the aggregation
-  const result = await User.aggregate(aggregationPipeline);
+  let result = await User.aggregate(aggregationPipeline);
   console.log(
     `Page ${page}: Found ${result.length} results out of ${total} total`
   );
+
+  // Filter out hidden fields from profiles (only check fields we're returning)
+  result = result.map((user) => {
+    if (user.profile && user.profile.hiddenFields) {
+      const hiddenFields = user.profile.hiddenFields;
+      
+      // Remove fields that are marked as hidden (only the ones we're returning)
+      if (hiddenFields.gender === true) delete user.profile.gender;
+      if (hiddenFields.jobTitle === true) delete user.profile.jobTitle;
+    }
+    return user;
+  });
 
   const meta = {
     page,
