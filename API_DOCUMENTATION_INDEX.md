@@ -6,7 +6,7 @@ Welcome to the Dot Connection App API documentation for Flutter developers.
 
 This is a dating/social networking application with email-based OTP authentication (no passwords required).
 
-**Base API URL:** `https://your-api-domain.com/api`
+**Base API URL:** `https://your-api-domain.com/api/v1`
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-https://your-api-domain.com/api/block
+https://your-api-domain.com/api/v1/block
 ```
 
 ## Authentication

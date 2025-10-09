@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-https://your-api-domain.com/api/match
+https://your-api-domain.com/api/v1/match
 ```
 
 ## Authentication
