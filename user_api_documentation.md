@@ -69,31 +69,191 @@ Authorization: Bearer <your_jwt_token>
   }
 }
 ```
-- **Note:** Also sets a `refreshToken` as an httpOnly cookie (valid for 30 days)
 
 ---
 
 ### 1.3 Get My Profile
 - **Endpoint:** `GET /user/getme`
-- **Description:** Get logged-in user's profile
+- **Description:** Get logged-in user's complete profile information
 - **Auth Required:** Yes
-- **Success Response:**
+- **Important:** This endpoint returns different data based on profile completion status. Use `allUserFieldsFilled` and `allProfileFieldsFilled` flags to guide the onboarding flow in the frontend.
+
+#### Response 1: After Account Creation (No Fields Filled)
+
+**State:** User just created account and verified OTP
+
 ```json
 {
   "success": true,
+  "message": "User retrieved successfully",
   "data": {
-    "_id": "user_id",
-    "email": "user@example.com",
-    "firstName": "John",
-    "lastName": "Doe",
-    "dateOfBirth": "1995-01-01",
-    "phoneNumber": "+1234567890",
+    "_id": "68e76ef88666374c5abacfc6",
+    "email": "kafikafi19@gmail.com",
+    "image": null,
+    "role": "USER",
+    "phoneNumber": null,
+    "fcmToken": null,
+    "status": "active",
     "verified": true,
-    "allFieldsFilled": true,
-    "profile": { ... }
+    "allProfileFieldsFilled": false,
+    "allUserFieldsFilled": false,
+    "authentication": {
+      "loginAttempts": 0,
+      "lastLoginAttempt": null
+    },
+    "lastLoginAt": "2025-10-09T08:15:20.070Z",
+    "dateOfBirth": null,
+    "pushNotification": true,
+    "createdAt": "2025-10-09T08:14:48.465Z",
+    "updatedAt": "2025-10-09T08:15:20.070Z"
   }
 }
 ```
+
+**Frontend Action:** Redirect to "Add User Fields" screen
+
+#### Response 2: After User Fields Added
+
+**State:** User completed basic information (`firstName`, `lastName`, `dateOfBirth`)
+
+```json
+{
+  "success": true,
+  "message": "User retrieved successfully",
+  "data": {
+    "_id": "68e76ef88666374c5abacfc6",
+    "email": "kafikafi19@gmail.com",
+    "image": null,
+    "role": "USER",
+    "phoneNumber": null,
+    "fcmToken": null,
+    "status": "active",
+    "verified": true,
+    "allProfileFieldsFilled": false,
+    "allUserFieldsFilled": true,
+    "authentication": {
+      "loginAttempts": 0,
+      "lastLoginAttempt": null
+    },
+    "lastLoginAt": "2025-10-09T08:15:20.070Z",
+    "dateOfBirth": "2000-11-02T00:00:00.000Z",
+    "pushNotification": true,
+    "createdAt": "2025-10-09T08:14:48.465Z",
+    "updatedAt": "2025-10-09T08:16:20.322Z",
+    "firstName": "test",
+    "lastName": "user"
+  }
+}
+```
+
+**Frontend Action:** Redirect to "Add Profile Fields" screen
+
+#### Response 3: Complete Profile (All Fields Filled)
+
+**State:** User completed both user fields and profile fields
+
+```json
+{
+  "success": true,
+  "message": "User retrieved successfully",
+  "data": {
+    "_id": "68e744f033764ce94f0e9247",
+    "firstName": "test",
+    "lastName": "user",
+    "email": "kafikafi1922@gmail.com",
+    "image": null,
+    "role": "ADMIN",
+    "phoneNumber": "N/A",
+    "fcmToken": null,
+    "status": "active",
+    "verified": true,
+    "allProfileFieldsFilled": true,
+    "allUserFieldsFilled": true,
+    "authentication": {
+      "loginAttempts": 0,
+      "lastLoginAttempt": null
+    },
+    "lastLoginAt": "2025-10-09T08:05:57.584Z",
+    "dateOfBirth": "2000-11-02T00:00:00.000Z",
+    "pushNotification": true,
+    "createdAt": "2025-10-09T05:15:28.694Z",
+    "updatedAt": "2025-10-09T08:13:02.350Z",
+    "profile": {
+      "_id": "68e76e91fa09b6b1282b0dca",
+      "userId": "68e744f033764ce94f0e9247",
+      "ageRangeMax": 24,
+      "ageRangeMin": 18,
+      "bio": "I am Null",
+      "createdAt": "2025-10-09T08:13:02.011Z",
+      "drinkingStatus": "No",
+      "gender": "male",
+      "height": 120,
+      "hiddenFields": {
+        "religious": true,
+        "school": true
+      },
+      "hometown": "Dhaka",
+      "interestedIn": "female",
+      "interests": [
+        "travel",
+        "fitness",
+        "photography",
+        "cooking",
+        "reading",
+        "hiking"
+      ],
+      "jobTitle": "Backend Developer",
+      "lastActive": "2025-10-09T08:13:02.015Z",
+      "location": {
+        "type": "Point",
+        "coordinates": [130.5, 29.5],
+        "address": "Dhaka,Bangladesh"
+      },
+      "lookingFor": "dating",
+      "maxDistance": 21,
+      "photos": [],
+      "profileViews": 0,
+      "religious": "muslim",
+      "school": "SRCS",
+      "smokingStatus": "No",
+      "studyLevel": "highSchool",
+      "updatedAt": "2025-10-09T08:13:02.011Z",
+      "workplace": "Mohakhali"
+    }
+  }
+}
+```
+
+**Frontend Action:** Allow full app access
+
+#### Frontend Integration Guide
+
+```javascript
+// Example frontend flow
+const response = await fetch('/user/getme', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+const { data } = await response.json();
+
+if (!data.allUserFieldsFilled) {
+  // Redirect to basic info form (firstName, lastName, dateOfBirth)
+  navigate('/onboarding/user-info');
+} else if (!data.allProfileFieldsFilled) {
+  // Redirect to profile setup form (location, interests, etc.)
+  navigate('/onboarding/profile-setup');
+} else {
+  // Profile complete, proceed to main app
+  navigate('/home');
+}
+```
+
+#### Key Response Fields
+
+- **allUserFieldsFilled** (`boolean`): `true` when `firstName`, `lastName`, and `dateOfBirth` are provided
+- **allProfileFieldsFilled** (`boolean`): `true` when complete profile is created via `/add-profile-fields`
+- **profile** (`object` or `undefined`): Only present when profile has been created
+- **firstName, lastName** (`string` or `undefined`): Only present after calling `/add-user-fields`
+- **dateOfBirth** (`string` or `null`): Only present after calling `/add-user-fields`
 
 ---
 

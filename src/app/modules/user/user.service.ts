@@ -272,7 +272,7 @@ const getAllUsers = async (
   return { result, meta };
 };
 //!mine
-const createUser = async (user: TUser): Promise<{ message: string }> => {
+const createUser = async (user: TUser): Promise<{ message: string,email: string }> => {
   let message = "";
   // Check if user exists
   const existingUser = await User.findOne({ email: user.email }).lean();
@@ -282,7 +282,7 @@ const createUser = async (user: TUser): Promise<{ message: string }> => {
     if (existingUser.verified) {
       await sendOTPForLogin(existingUser.email);
       message = "Verification code sent successfully to your email";
-      return { message };
+      return { message,email: existingUser.email  };
     }
 
     // If user exists but not verified, delete the old account
@@ -303,7 +303,7 @@ const createUser = async (user: TUser): Promise<{ message: string }> => {
     await UserCacheManage.updateUserCache(newUser._id.toString());
   }
   message = "User created successfully. Verification code sent to your email";
-  return { message };
+  return { message ,email: newUser.email};
 };
 //!mine
 const getMe = async (
@@ -353,6 +353,9 @@ const addUserFields = async (userId: string, fields: Partial<TUser>) => {
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, "User not found");
   }
+  //remove cache
+  await UserCacheManage.updateUserCache(userId);
+  await UserCacheManage.updateUserCache(`${userId}-me`);
 
   return user;
 };
@@ -413,7 +416,7 @@ const addProfileFields = async (userId: string, fields: Partial<TUser>) => {
   }
   //remove cache
   await UserCacheManage.updateUserCache(userId);
-
+  await UserCacheManage.updateUserCache(`${userId}-me`);
 
   return user;
 };

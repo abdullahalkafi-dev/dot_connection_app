@@ -6,12 +6,12 @@ import sendResponse from "../../../shared/sendResponse";
 import { logger } from "../../../shared/logger";
 //!mine
 const createUser = catchAsync(async (req: Request, res: Response) => {
-  const { message } = await UserServices.createUser(req.body);
+  const { message ,email} = await UserServices.createUser(req.body);
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
     message: message,
-    data: null,
+    data: { email },
   });
 });
 
