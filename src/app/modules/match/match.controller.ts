@@ -8,7 +8,6 @@ import sendResponse from "../../../shared/sendResponse";
 const getPotentialMatches = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user._id;
   const matchesRes = await MatchServices.getPotentialMatches(userId, req.query);
-  
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

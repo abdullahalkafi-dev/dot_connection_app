@@ -16,13 +16,15 @@ const getPotentialMatches = async (
   userId: string,
   query: Record<string, unknown>
 ): Promise<TReturnMatch.getPotentialMatches> => {
-  console.log("hello");
   // Get current user's profile to access their preferences
   const currentUserProfile = await Profile.findOne({ userId });
 
   if (!currentUserProfile) {
     throw new AppError(StatusCodes.NOT_FOUND, "User profile not found");
   }
+
+  // Get current user's location for distance calculation
+  const currentUserLocation = currentUserProfile.location?.coordinates;
 
   // Get users this user has already interacted with
   const interactedUsers = await Match.find({ fromUserId: userId }).select(
@@ -75,6 +77,66 @@ const getPotentialMatches = async (
         ],
       },
     },
+    // Add calculated fields (age and distance)
+    {
+      $addFields: {
+        // Calculate age from date of birth
+        age: {
+          $floor: {
+            $divide: [
+              { $subtract: [new Date(), "$dateOfBirth"] },
+              365.25 * 24 * 60 * 60 * 1000, // milliseconds in a year
+            ],
+          },
+        },
+        // Calculate distance if both users have location (Haversine formula)
+        distance: currentUserLocation
+          ? {
+              $cond: {
+                if: { $ifNull: ["$profile.location.coordinates", false] },
+                then: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $acos: {
+                            $add: [
+                              {
+                                $multiply: [
+                                  { $sin: { $degreesToRadians: currentUserLocation[1] } },
+                                  { $sin: { $degreesToRadians: { $arrayElemAt: ["$profile.location.coordinates", 1] } } },
+                                ],
+                              },
+                              {
+                                $multiply: [
+                                  { $cos: { $degreesToRadians: currentUserLocation[1] } },
+                                  { $cos: { $degreesToRadians: { $arrayElemAt: ["$profile.location.coordinates", 1] } } },
+                                  { $cos: {
+                                      $degreesToRadians: {
+                                        $subtract: [
+                                          { $arrayElemAt: ["$profile.location.coordinates", 0] },
+                                          currentUserLocation[0],
+                                        ],
+                                      },
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                        6371, // Earth's radius in kilometers
+                      ],
+                    },
+                    2, // Round to 2 decimal places
+                  ],
+                },
+                else: null,
+              },
+            }
+          : null,
+      },
+    },
     // Project only required fields
     {
       $project: {
@@ -86,6 +148,8 @@ const getPotentialMatches = async (
         firstName: 1,
         lastName: 1,
         lastLoginAt: 1,
+        age: 1, // Calculated age
+        distance: 1, // Calculated distance in km
         // Only include specific profile fields
         "profile._id": 1,
         "profile.userId": 1,

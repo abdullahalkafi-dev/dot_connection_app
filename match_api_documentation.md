@@ -17,7 +17,7 @@ Authorization: Bearer <your_jwt_token>
 
 ### 2.1 Get Potential Matches
 - **Endpoint:** `GET /match/potential`
-- **Description:** Get list of users to swipe on
+- **Description:** Get list of users to swipe on. Returns potential matches with calculated age and distance fields.
 - **Auth Required:** Yes
 - **Query Parameters:**
   - `page` - Page number (optional)
@@ -43,6 +43,8 @@ Authorization: Bearer <your_jwt_token>
       "dateOfBirth": "2001-03-28T00:00:00.000Z",
       "firstName": "Lina",
       "lastName": "Rahman",
+      "age": 24,
+      "distance": 15.23,
       "profile": {
         "_id": "68be741b610226cf5ddbbbf6",
         "userId": "68be7282a0db89cc44e432d6",
@@ -65,6 +67,8 @@ Authorization: Bearer <your_jwt_token>
       "dateOfBirth": "1994-07-10T00:00:00.000Z",
       "firstName": "Sam",
       "lastName": "Taylor",
+      "age": 31,
+      "distance": null,
       "profile": {
         "_id": "68be950f610226cf5ddbc8db",
         "userId": "68be743da0db89cc44e432e4",
@@ -83,6 +87,11 @@ Authorization: Bearer <your_jwt_token>
     }
   ]
 }
+```
+
+**Response Fields:**
+- `age` - Calculated age in years based on `dateOfBirth` (integer)
+- `distance` - Distance in kilometers from requesting user to potential match (number with 2 decimal places, or `null` if location data unavailable for either user)
 ```
 
 ---

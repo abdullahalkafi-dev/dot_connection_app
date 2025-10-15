@@ -20,6 +20,7 @@ export type TUser = {
   };
   allProfileFieldsFilled: boolean;
   allUserFieldsFilled: boolean;
+  isProfileVerified: boolean;
   pushNotification: boolean;
   lastLoginAt?: Date;
   dateOfBirth?: Date;

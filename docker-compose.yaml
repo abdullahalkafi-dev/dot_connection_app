@@ -1,37 +1,3 @@
-# services:
-#   dot_connection_app_redis:
-#       image: redis:7
-#       container_name: dot_connection_app_redis
-#       ports:
-#         - "6389:6379"
-#       healthcheck:
-#        test: ["CMD", "redis-cli", "ping"]
-#        interval: 10s
-#        retries: 5
-#        start_period: 30s
-#        timeout: 10s
-#   dot_connection_app_backend:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile
-#     ports:
-#       - "5009:5009"
-#     env_file:
-#       - .env
-#     volumes:
-#       - dot_connection_app-logs:/app/winston
-#       - /app/node_modules
-#       - .:/app    
-#     depends_on:
-#       dot_connection_app_redis:
-#         condition: service_healthy
-#     restart: unless-stopped  
-# volumes:
-#   dot_connection_app-logs:
-    
-
-###########################################################################################################################
-
 version: "3.8"
 services:
   dot_connection_app_redis:
