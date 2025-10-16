@@ -16,27 +16,39 @@ const getPotentialMatches = async (
   userId: string,
   query: Record<string, unknown>
 ): Promise<TReturnMatch.getPotentialMatches> => {
-  // Get current user's profile to access their preferences
-  const currentUserProfile = await Profile.findOne({ userId });
+  const startTime = Date.now();
+  
+  // Get current user's profile to access their preferences (optimized with lean and select)
+  const currentUserProfile = await Profile.findOne({ userId })
+    .select('gender interestedIn location')
+    .lean()
+    .exec();
 
   if (!currentUserProfile) {
     throw new AppError(StatusCodes.NOT_FOUND, "User profile not found");
   }
 
+  console.log(`[Performance] Profile fetch: ${Date.now() - startTime}ms`);
+  const step2Start = Date.now();
+
   // Get current user's location for distance calculation
   const currentUserLocation = currentUserProfile.location?.coordinates;
 
-  // Get users this user has already interacted with
-  const interactedUsers = await Match.find({ fromUserId: userId }).select(
-    "toUserId"
-  );
+  // Get users this user has already interacted with (optimized with lean)
+  const interactedUsers = await Match.find({ fromUserId: userId })
+    .select('toUserId -_id')
+    .lean()
+    .exec();
+  
   const interactedUserIds = interactedUsers.map((match) => match.toUserId);
   // Add current user to exclude list
   interactedUserIds.push(new mongoose.Types.ObjectId(userId));
 
+  console.log(`[Performance] Interacted users fetch: ${Date.now() - step2Start}ms (${interactedUserIds.length} users)`);
+
   // Use aggregation to properly join with profiles and filter
   const aggregationPipeline: any[] = [
-    // Match basic user criteria first
+    // Stage 1: Match basic user criteria first (most selective operation)
     {
       $match: {
         _id: { $nin: interactedUserIds },
@@ -44,40 +56,60 @@ const getPotentialMatches = async (
         allProfileFieldsFilled: true,
         allUserFieldsFilled: true,
         status: "active",
+        dateOfBirth: { $exists: true }, // Ensure DOB exists for age calculation
       },
     },
-    // Lookup profile data
+    // Stage 2: Lookup profile data with pre-filtering in the pipeline
     {
       $lookup: {
         from: "profiles",
         localField: "_id",
         foreignField: "userId",
         as: "profile",
-      },
-    },
-    // Unwind profile (should be only one)
-    {
-      $unwind: "$profile",
-    },
-    // Apply gender and mutual interest filters
-    {
-      $match: {
-        $and: [
-          // Current user's gender preference
-          currentUserProfile.interestedIn === "everyone"
-            ? {}
-            : { "profile.gender": currentUserProfile.interestedIn },
-          // Mutual interest - target user must be interested in current user's gender
+        pipeline: [
+          // Filter by gender preferences within the lookup
           {
-            $or: [
-              { "profile.interestedIn": "everyone" },
-              { "profile.interestedIn": currentUserProfile.gender },
-            ],
+            $match: {
+              $and: [
+                // Current user's gender preference
+                currentUserProfile.interestedIn === "everyone"
+                  ? {}
+                  : { gender: currentUserProfile.interestedIn },
+                // Mutual interest
+                {
+                  $or: [
+                    { interestedIn: "everyone" },
+                    { interestedIn: currentUserProfile.gender },
+                  ],
+                },
+              ],
+            },
+          },
+          // Project only needed fields from profile
+          {
+            $project: {
+              _id: 1,
+              userId: 1,
+              bio: 1,
+              gender: 1,
+              interests: 1,
+              jobTitle: 1,
+              location: 1,
+              photos: 1,
+              hiddenFields: 1,
+            },
           },
         ],
       },
     },
-    // Add calculated fields (age and distance)
+    // Stage 3: Unwind and exclude users without matching profiles
+    {
+      $unwind: {
+        path: "$profile",
+        preserveNullAndEmptyArrays: false, // Exclude users without matching profiles
+      },
+    },
+    // Stage 4: Add calculated fields (age and distance)
     {
       $addFields: {
         // Calculate age from date of birth
@@ -85,11 +117,11 @@ const getPotentialMatches = async (
           $floor: {
             $divide: [
               { $subtract: [new Date(), "$dateOfBirth"] },
-              365.25 * 24 * 60 * 60 * 1000, // milliseconds in a year
+              31557600000, // milliseconds in a year (365.25 days)
             ],
           },
         },
-        // Calculate distance if both users have location (Haversine formula)
+        // Calculate distance if both users have location (Haversine formula with safety checks)
         distance: currentUserLocation
           ? {
               $cond: {
@@ -100,25 +132,68 @@ const getPotentialMatches = async (
                       $multiply: [
                         {
                           $acos: {
-                            $add: [
+                            // Add min/max to prevent domain errors
+                            $max: [
+                              -1,
                               {
-                                $multiply: [
-                                  { $sin: { $degreesToRadians: currentUserLocation[1] } },
-                                  { $sin: { $degreesToRadians: { $arrayElemAt: ["$profile.location.coordinates", 1] } } },
-                                ],
-                              },
-                              {
-                                $multiply: [
-                                  { $cos: { $degreesToRadians: currentUserLocation[1] } },
-                                  { $cos: { $degreesToRadians: { $arrayElemAt: ["$profile.location.coordinates", 1] } } },
-                                  { $cos: {
-                                      $degreesToRadians: {
-                                        $subtract: [
-                                          { $arrayElemAt: ["$profile.location.coordinates", 0] },
-                                          currentUserLocation[0],
+                                $min: [
+                                  1,
+                                  {
+                                    $add: [
+                                      {
+                                        $multiply: [
+                                          {
+                                            $sin: {
+                                              $degreesToRadians: currentUserLocation[1],
+                                            },
+                                          },
+                                          {
+                                            $sin: {
+                                              $degreesToRadians: {
+                                                $arrayElemAt: [
+                                                  "$profile.location.coordinates",
+                                                  1,
+                                                ],
+                                              },
+                                            },
+                                          },
                                         ],
                                       },
-                                    },
+                                      {
+                                        $multiply: [
+                                          {
+                                            $cos: {
+                                              $degreesToRadians: currentUserLocation[1],
+                                            },
+                                          },
+                                          {
+                                            $cos: {
+                                              $degreesToRadians: {
+                                                $arrayElemAt: [
+                                                  "$profile.location.coordinates",
+                                                  1,
+                                                ],
+                                              },
+                                            },
+                                          },
+                                          {
+                                            $cos: {
+                                              $degreesToRadians: {
+                                                $subtract: [
+                                                  {
+                                                    $arrayElemAt: [
+                                                      "$profile.location.coordinates",
+                                                      0,
+                                                    ],
+                                                  },
+                                                  currentUserLocation[0],
+                                                ],
+                                              },
+                                            },
+                                          },
+                                        ],
+                                      },
+                                    ],
                                   },
                                 ],
                               },
@@ -137,7 +212,7 @@ const getPotentialMatches = async (
           : null,
       },
     },
-    // Project only required fields
+    // Stage 5: Project only required fields
     {
       $project: {
         _id: 1,
@@ -150,30 +225,47 @@ const getPotentialMatches = async (
         lastLoginAt: 1,
         age: 1, // Calculated age
         distance: 1, // Calculated distance in km
-        // Only include specific profile fields
-        "profile._id": 1,
-        "profile.userId": 1,
-        "profile.bio": 1,
-        "profile.gender": 1,
-        "profile.interests": 1,
-        "profile.jobTitle": 1,
-        "profile.hiddenFields": 1,
+        profile: 1, // Include entire profile object (already filtered)
+      },
+    },
+    // Stage 6: Sort by distance (nulls last) then by last login
+    {
+      $sort: {
+        distance: 1,
+        lastLoginAt: -1,
       },
     },
   ];
+
+  console.log(`[Performance] Pipeline setup: ${Date.now() - startTime}ms`);
+  const step3Start = Date.now();
 
   // Add pagination if specified
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  // Get total count for pagination
-  const totalCountPipeline = [...aggregationPipeline, { $count: "total" }];
-  const totalResult = await User.aggregate(totalCountPipeline);
+  // Execute count and results in parallel for better performance
+  const [totalResult, result] = await Promise.all([
+    User.aggregate([
+      ...aggregationPipeline.slice(0, 3), // Only need first 3 stages for count
+      { $count: "total" },
+    ]).allowDiskUse(true),
+    User.aggregate([
+      ...aggregationPipeline,
+      { $skip: skip },
+      { $limit: limit },
+    ]).allowDiskUse(true),
+  ]);
+
+  console.log(`[Performance] Aggregation execution: ${Date.now() - step3Start}ms`);
+
   const total = totalResult[0]?.total || 0;
 
   // Calculate total pages
   const totalPage = Math.ceil(total / limit);
+
+  console.log(`[Performance] Found ${result.length} results out of ${total} total (Page ${page}/${totalPage})`);
 
   // Validate page number - if page is beyond available pages, return empty results
   if (page > totalPage && total > 0) {
@@ -191,29 +283,19 @@ const getPotentialMatches = async (
     };
   }
 
-  // Add pagination to main pipeline
-  if (query.page || query.limit) {
-    aggregationPipeline.push({ $skip: skip });
-    aggregationPipeline.push({ $limit: limit });
-  }
-
-  // Execute the aggregation
-  let result = await User.aggregate(aggregationPipeline);
-  console.log(
-    `Page ${page}: Found ${result.length} results out of ${total} total`
-  );
-
   // Filter out hidden fields from profiles (only check fields we're returning)
-  result = result.map((user) => {
+  const filteredResult = result.map((user) => {
     if (user.profile && user.profile.hiddenFields) {
       const hiddenFields = user.profile.hiddenFields;
-      
+
       // Remove fields that are marked as hidden (only the ones we're returning)
       if (hiddenFields.gender === true) delete user.profile.gender;
       if (hiddenFields.jobTitle === true) delete user.profile.jobTitle;
     }
     return user;
   });
+
+  console.log(`[Performance] Total request time: ${Date.now() - startTime}ms`);
 
   const meta = {
     page,
@@ -222,7 +304,7 @@ const getPotentialMatches = async (
     totalPage,
   };
 
-  return { result, meta };
+  return { result: filteredResult, meta };
 };
 
 // Perform action on a user (skip, love)
@@ -290,17 +372,18 @@ const performAction = async (
 
       // Auto-accept any existing pending request
       await ConnectionRequest.findOneAndUpdate(
-        { 
-          fromUserId: toUserId, 
-          toUserId: fromUserId, 
-          status: "pending" 
+        {
+          fromUserId: toUserId,
+          toUserId: fromUserId,
+          status: "pending",
         },
         { status: "accepted" }
       );
 
       responseData.isMatch = true;
       responseData.connection = connection;
-      responseData.message = "It's a match! 🎉 Connection created automatically";
+      responseData.message =
+        "It's a match! 🎉 Connection created automatically";
     } else {
       // Create connection request (one-sided love)
       const connectionRequest = await ConnectionRequest.create({

@@ -80,6 +80,10 @@ const userSchema = new Schema<TUser, UserModal>(
       type: Boolean,
       default: false,
     },
+    isProfileVerified: {
+      type: Boolean,
+      default: false,
+    },
     authentication: {
       oneTimeCode: {
         type: String,
@@ -130,8 +134,16 @@ const userSchema = new Schema<TUser, UserModal>(
 userSchema.index({ status: 1 });
 // this for better index performance
 userSchema.index({ createdAt: -1 });
-// this for text search in names
+userSchema.index({ 
+  verified: 1, 
+  allProfileFieldsFilled: 1, 
+  allUserFieldsFilled: 1, 
+  status: 1 
+});
+userSchema.index({ lastLoginAt: -1 });
+userSchema.index({ dateOfBirth: 1 });
 userSchema.index({ firstName: "text", lastName: "text" });
+userSchema.index({ _id: 1, verified: 1, status: 1 });
 userSchema.virtual("fullName").get(function () {
   const user = this as unknown as TUser;
   return `${user.firstName} ${user.lastName}`;

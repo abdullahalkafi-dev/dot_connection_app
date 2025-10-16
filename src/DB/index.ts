@@ -16,6 +16,7 @@ const superUser: TUser = {
   allUserFieldsFilled: false,
   phoneNumber: "N/A",
   status: "active",
+   isProfileVerified: true,
 };
 
 const seedSuperAdmin = async () => {

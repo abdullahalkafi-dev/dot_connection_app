@@ -39,7 +39,8 @@ matchSchema.index({ fromUserId: 1 });
 matchSchema.index({ fromUserId: 1, action: 1 });
 matchSchema.index({ toUserId: 1, action: 1 });
 matchSchema.index({ createdAt: -1 });
-
+matchSchema.index({ fromUserId: 1, createdAt: -1 });
+matchSchema.index({ fromUserId: 1, toUserId: 1, action: 1 });
 // Static methods
 matchSchema.statics.findUserMatches = async function (userId: string) {
   return await this.find({ fromUserId: userId }).populate(

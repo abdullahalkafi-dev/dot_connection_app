@@ -206,6 +206,9 @@ profileSchema.index({ ageRangeMin: 1, ageRangeMax: 1 });
 profileSchema.index({ verified: 1 });
 profileSchema.index({ lastActive: -1 });
 profileSchema.index({ createdAt: -1 });
+profileSchema.index({ userId: 1, gender: 1, interestedIn: 1 });
+profileSchema.index({ gender: 1, interestedIn: 1 });
+profileSchema.index({ "location.coordinates": "2dsphere" });
 
 // Static method to find profile by user ID
 profileSchema.statics.findByUserId = async function (userId: string) {

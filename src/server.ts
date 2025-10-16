@@ -8,7 +8,7 @@ import app from './app';
 import config from './config';
 import seedSuperAdmin from './DB';
 import { setupSocket } from './socket/socket';
-import { createDatabaseIndexes } from './DB/indexes';
+
 
 //uncaught exception
 process.on('uncaughtException', error => {
