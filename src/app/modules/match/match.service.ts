@@ -92,10 +92,19 @@ const getPotentialMatches = async (
               userId: 1,
               bio: 1,
               gender: 1,
+              religious: 1,
+              drinkingStatus: 1,
+              smokingStatus: 1,
               interests: 1,
               jobTitle: 1,
               location: 1,
               photos: 1,
+              height: 1,
+              workplace: 1,
+              hometown: 1,
+              school: 1,
+              studyLevel: 1,
+              lookingFor: 1,
               hiddenFields: 1,
             },
           },
@@ -222,6 +231,8 @@ const getPotentialMatches = async (
         dateOfBirth: 1,
         firstName: 1,
         lastName: 1,
+
+
         lastLoginAt: 1,
         age: 1, // Calculated age
         distance: 1, // Calculated distance in km
@@ -291,6 +302,15 @@ const getPotentialMatches = async (
       // Remove fields that are marked as hidden (only the ones we're returning)
       if (hiddenFields.gender === true) delete user.profile.gender;
       if (hiddenFields.jobTitle === true) delete user.profile.jobTitle;
+      if (hiddenFields.religious === true) delete user.profile.religious;
+      if (hiddenFields.drinkingStatus === true) delete user.profile.drinkingStatus;
+      if (hiddenFields.smokingStatus === true) delete user.profile.smokingStatus;
+      if (hiddenFields.height === true) delete user.profile.height;
+      if (hiddenFields.workplace === true) delete user.profile.workplace;
+      if (hiddenFields.hometown === true) delete user.profile.hometown;
+      if (hiddenFields.school === true) delete user.profile.school;
+      if (hiddenFields.studyLevel === true) delete user.profile.studyLevel;
+      if (hiddenFields.lookingFor === true) delete user.profile.lookingFor;
     }
     return user;
   });

@@ -50,12 +50,30 @@ Authorization: Bearer <your_jwt_token>
         "userId": "68be7282a0db89cc44e432d6",
         "bio": "Test user 9",
         "gender": "male",
+        "religious": "muslim",
+        "drinkingStatus": "never",
+        "smokingStatus": "never",
         "interests": [
           "fitness",
           "movies",
           "travel"
         ],
-        "jobTitle": "Developer"
+        "jobTitle": "Developer",
+        "location": {
+          "type": "Point",
+          "coordinates": [90.4125, 23.8103],
+          "address": "Dhaka, Bangladesh"
+        },
+        "photos": [
+          "https://example.com/photo1.jpg",
+          "https://example.com/photo2.jpg"
+        ],
+        "height": 175,
+        "workplace": "Tech Corp",
+        "hometown": "Dhaka",
+        "school": "Dhaka University",
+        "studyLevel": "bachelor",
+        "lookingFor": "relationship"
       }
     },
     {
@@ -74,14 +92,31 @@ Authorization: Bearer <your_jwt_token>
         "userId": "68be743da0db89cc44e432e4",
         "bio": "Test user 9",
         "gender": "male",
+        "religious": "muslim",
+        "drinkingStatus": "occasionally",
+        "smokingStatus": "never",
         "interests": [
           "fitness",
           "photography",
           "travel"
         ],
         "jobTitle": "Developer",
+        "location": {
+          "type": "Point",
+          "coordinates": [90.4125, 23.8103],
+          "address": "Dhaka, Bangladesh"
+        },
+        "photos": [
+          "https://example.com/photo1.jpg"
+        ],
+        "height": 180,
+        "workplace": "Design Studio",
+        "hometown": "Chittagong",
+        "school": "Chittagong University",
+        "studyLevel": "master",
+        "lookingFor": "friendship",
         "hiddenFields": {
-          "school": false
+          "school": true
         }
       }
     }
@@ -92,6 +127,25 @@ Authorization: Bearer <your_jwt_token>
 **Response Fields:**
 - `age` - Calculated age in years based on `dateOfBirth` (integer)
 - `distance` - Distance in kilometers from requesting user to potential match (number with 2 decimal places, or `null` if location data unavailable for either user)
+- `profile` - Complete profile information of the potential match
+  - `bio` - User's biography/about text
+  - `gender` - User's gender (male, female, other) - may be hidden based on user preferences
+  - `religious` - Religious preference - may be hidden based on user preferences
+  - `drinkingStatus` - Drinking status (never, occasionally, regularly, prefer_not_to_say) - may be hidden based on user preferences
+  - `smokingStatus` - Smoking status (never, occasionally, regularly, prefer_not_to_say) - may be hidden based on user preferences
+  - `interests` - Array of user interests
+  - `jobTitle` - User's job title - may be hidden based on user preferences
+  - `location` - Full location object with type, coordinates (longitude, latitude), and address
+  - `photos` - Array of photo URLs
+  - `height` - Height in centimeters - may be hidden based on user preferences
+  - `workplace` - User's workplace - may be hidden based on user preferences
+  - `hometown` - User's hometown - may be hidden based on user preferences
+  - `school` - User's school/university - may be hidden based on user preferences
+  - `studyLevel` - Education level (high_school, bachelor, master, phd, etc.) - may be hidden based on user preferences
+  - `lookingFor` - What the user is looking for (friendship, relationship, casual, etc.) - may be hidden based on user preferences
+  - `hiddenFields` - Object indicating which fields are hidden (if a field is marked as hidden in `hiddenFields`, it will not appear in the profile object)
+
+**Note:** Fields marked as hidden in the user's privacy settings will be excluded from the profile object entirely.
 ```
 
 ---
