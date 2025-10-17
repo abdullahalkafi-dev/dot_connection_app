@@ -405,18 +405,228 @@ const getConnectionRequests = async (
   userId: string,
   query: Record<string, unknown>
 ): Promise<TReturnMatch.getConnectionRequests> => {
-  const requestQuery = new QueryBuilder(
-    ConnectionRequest.find({ toUserId: userId, status: "pending" }),
-    query
-  )
-    .sort()
-    .paginate();
+  // Get current user's profile for location
+  const currentUserProfile = await Profile.findOne({ userId })
+    .select('location')
+    .lean()
+    .exec();
 
-  const result = await requestQuery.modelQuery.populate(
-    "fromUserId",
-    "firstName lastName image verified"
-  );
-  const meta = await requestQuery.countTotal();
+  const currentUserLocation = currentUserProfile?.location?.coordinates;
+
+  // Get pagination parameters
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  // Build aggregation pipeline
+  const aggregationPipeline: any[] = [
+    // Match pending connection requests
+    {
+      $match: {
+        toUserId: new mongoose.Types.ObjectId(userId),
+        status: "pending"
+      }
+    },
+    // Lookup sender user data
+    {
+      $lookup: {
+        from: "users",
+        localField: "fromUserId",
+        foreignField: "_id",
+        as: "fromUser"
+      }
+    },
+    {
+      $unwind: "$fromUser"
+    },
+    // Lookup sender profile data
+    {
+      $lookup: {
+        from: "profiles",
+        localField: "fromUserId",
+        foreignField: "userId",
+        as: "profile",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              userId: 1,
+              bio: 1,
+              gender: 1,
+              religious: 1,
+              drinkingStatus: 1,
+              smokingStatus: 1,
+              interests: 1,
+              jobTitle: 1,
+              location: 1,
+              photos: 1,
+              height: 1,
+              workplace: 1,
+              hometown: 1,
+              school: 1,
+              studyLevel: 1,
+              lookingFor: 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      $unwind: {
+        path: "$profile",
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    // Add calculated fields
+    {
+      $addFields: {
+        // Calculate age from date of birth
+        age: {
+          $cond: {
+            if: { $ifNull: ["$fromUser.dateOfBirth", false] },
+            then: {
+              $floor: {
+                $divide: [
+                  { $subtract: [new Date(), "$fromUser.dateOfBirth"] },
+                  31557600000 // milliseconds in a year (365.25 days)
+                ]
+              }
+            },
+            else: null
+          }
+        },
+        // Calculate distance if both users have location
+        distance: currentUserLocation
+          ? {
+              $cond: {
+                if: { $ifNull: ["$profile.location.coordinates", false] },
+                then: {
+                  $round: [
+                    {
+                      $multiply: [
+                        {
+                          $acos: {
+                            $max: [
+                              -1,
+                              {
+                                $min: [
+                                  1,
+                                  {
+                                    $add: [
+                                      {
+                                        $multiply: [
+                                          {
+                                            $sin: {
+                                              $degreesToRadians: currentUserLocation[1]
+                                            }
+                                          },
+                                          {
+                                            $sin: {
+                                              $degreesToRadians: {
+                                                $arrayElemAt: [
+                                                  "$profile.location.coordinates",
+                                                  1
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        $multiply: [
+                                          {
+                                            $cos: {
+                                              $degreesToRadians: currentUserLocation[1]
+                                            }
+                                          },
+                                          {
+                                            $cos: {
+                                              $degreesToRadians: {
+                                                $arrayElemAt: [
+                                                  "$profile.location.coordinates",
+                                                  1
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          {
+                                            $cos: {
+                                              $degreesToRadians: {
+                                                $subtract: [
+                                                  {
+                                                    $arrayElemAt: [
+                                                      "$profile.location.coordinates",
+                                                      0
+                                                    ]
+                                                  },
+                                                  currentUserLocation[0]
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        6371 // Earth's radius in kilometers
+                      ]
+                    },
+                    2 // Round to 2 decimal places
+                  ]
+                },
+                else: null
+              }
+            }
+          : null
+      }
+    },
+    // Project final structure
+    {
+      $project: {
+        _id: 1,
+        fromUserId: 1,
+        toUserId: 1,
+        status: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        profile: 1,
+        age: 1,
+        distance: 1
+      }
+    },
+    // Sort by creation date (newest first)
+    {
+      $sort: { createdAt: -1 }
+    }
+  ];
+
+  // Execute count and results in parallel
+  const [totalResult, result] = await Promise.all([
+    ConnectionRequest.aggregate([
+      ...aggregationPipeline.slice(0, 1), // Only match stage for count
+      { $count: "total" }
+    ]),
+    ConnectionRequest.aggregate([
+      ...aggregationPipeline,
+      { $skip: skip },
+      { $limit: limit }
+    ])
+  ]);
+
+  const total = totalResult[0]?.total || 0;
+  const totalPage = Math.ceil(total / limit);
+
+  const meta = {
+    page,
+    limit,
+    total,
+    totalPage
+  };
 
   return { result, meta };
 };

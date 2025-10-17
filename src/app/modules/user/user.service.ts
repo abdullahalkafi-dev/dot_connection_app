@@ -26,7 +26,6 @@ const getUserById = async (
 
   // If not cached, query the database using lean with virtuals enabled.
   const user = await User.findById(id).lean();
-  console.log(user);
   const profile = await Profile.findOne({ userId: id }).lean();
   if (profile) {
     (user as any).profile = profile || null;

@@ -157,8 +157,11 @@ Authorization: Bearer <your_jwt_token>
 
 ### 2.3 Get Connection Requests
 - **Endpoint:** `GET /match/requests`
-- **Description:** Get all connection requests you received
+- **Description:** Get all connection requests you received with sender's profile details, age, gender, location, and distance
 - **Auth Required:** Yes
+- **Query Parameters:**
+  - `page` - Page number (optional, default: 1)
+  - `limit` - Results per page (optional, default: 10)
 - **Success Response:**
 ```json
 {
@@ -166,29 +169,69 @@ Authorization: Bearer <your_jwt_token>
   "message": "Connection requests retrieved successfully",
   "meta": {
     "page": 1,
-    "limit": 9999,
+    "limit": 10,
     "total": 1,
     "totalPage": 1
   },
   "data": [
     {
       "_id": "68bfba00309c7bb4c611f3a9",
-      "fromUserId": {
-        "_id": "68be64b2a0db89cc44e43270",
-        "image": null,
-        "verified": true,
-        "firstName": "John",
-        "lastName": "Doe",
-        "fullName": "John Doe"
-      },
+      "fromUserId": "68be64b2a0db89cc44e43270",
       "toUserId": "68be6aeba0db89cc44e4328c",
       "status": "pending",
       "createdAt": "2025-09-09T05:24:16.109Z",
-      "updatedAt": "2025-09-09T05:24:16.109Z"
+      "updatedAt": "2025-09-09T05:24:16.109Z",
+      "profile": {
+        "_id": "68be741b610226cf5ddbbbf6",
+        "userId": "68be64b2a0db89cc44e43270",
+        "bio": "Love traveling and exploring new places",
+        "gender": "male",
+        "religious": "muslim",
+        "drinkingStatus": "never",
+        "smokingStatus": "never",
+        "interests": [
+          "fitness",
+          "movies",
+          "travel",
+          "photography"
+        ],
+        "jobTitle": "Software Developer",
+        "location": {
+          "type": "Point",
+          "coordinates": [90.4125, 23.8103],
+          "address": "Dhaka, Bangladesh"
+        },
+        "photos": [
+          "https://example.com/photo1.jpg",
+          "https://example.com/photo2.jpg"
+        ],
+        "height": 175,
+        "workplace": "Tech Corp",
+        "hometown": "Dhaka",
+        "school": "Dhaka University",
+        "studyLevel": "bachelor",
+        "lookingFor": "relationship"
+      },
+      "age": 24,
+      "distance": 15.23
     }
   ]
 }
 ```
+
+**Response Fields:**
+- `profile` - Complete profile information of the sender
+  - `gender` - Sender's gender (male, female, other)
+  - `religious` - Religious preference
+  - `drinkingStatus` - Drinking status
+  - `smokingStatus` - Smoking status
+  - `interests` - Array of interests
+  - `location` - Full location object with type, coordinates (longitude, latitude), and address
+  - `photos` - Array of photo URLs
+  - `height` - Height in cm
+  - `workplace`, `hometown`, `school`, `studyLevel`, `lookingFor` - Additional profile fields
+- `age` - Calculated age in years based on sender's `dateOfBirth` (integer, or `null` if not available)
+- `distance` - Distance in kilometers from you to the sender (number with 2 decimal places, or `null` if location data unavailable for either user)
 
 ---
 
