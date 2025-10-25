@@ -13,9 +13,7 @@ import { Profile } from "../profile/profile.model";
 import unlinkFile from "../../../shared/unlinkFile";
 import { TProfile } from "../profile/profile.interface";
 
-const getUserById = async (
-  id: string
-) => {
+const getUserById = async (id: string) => {
   console.log(id);
   // First check cache
   const cached = await UserCacheManage.getCacheSingleUser(id);
@@ -67,7 +65,6 @@ const applyHiddenFieldsFilter = (user: any) => {
 
   return filteredUser;
 };
-
 
 const updateUserActivationStatus = async (
   id: string,
@@ -271,7 +268,9 @@ const getAllUsers = async (
   return { result, meta };
 };
 //!mine
-const createUser = async (user: TUser): Promise<{ message: string,email: string }> => {
+const createUser = async (
+  user: TUser
+): Promise<{ message: string; email: string }> => {
   let message = "";
   // Check if user exists
   const existingUser = await User.findOne({ email: user.email }).lean();
@@ -281,7 +280,7 @@ const createUser = async (user: TUser): Promise<{ message: string,email: string 
     if (existingUser.verified) {
       await sendOTPForLogin(existingUser.email);
       message = "Verification code sent successfully to your email";
-      return { message,email: existingUser.email  };
+      return { message, email: existingUser.email };
     }
 
     // If user exists but not verified, delete the old account
@@ -302,12 +301,10 @@ const createUser = async (user: TUser): Promise<{ message: string,email: string 
     await UserCacheManage.updateUserCache(newUser._id.toString());
   }
   message = "User created successfully. Verification code sent to your email";
-  return { message ,email: newUser.email};
+  return { message, email: newUser.email };
 };
 //!mine
-const getMe = async (
-  id: string
-)=> {
+const getMe = async (id: string) => {
   console.log(id);
   if (!id) {
     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized");
@@ -517,7 +514,7 @@ const deleteProfileImage = async (userId: string, imageIndex: number) => {
   if (!updatedProfile) {
     throw new AppError(StatusCodes.BAD_REQUEST, "Failed to delete image");
   }
- //remove cache
+  //remove cache
   await UserCacheManage.updateUserCache(userId);
   await UserCacheManage.updateUserCache(`${userId}-me`);
   return updatedProfile;
@@ -684,7 +681,7 @@ const getNearbyUsers = async (
 
 //!mine - Update hidden fields for user profile
 const updateHiddenFields = async (
-  userId: string, 
+  userId: string,
   hiddenFieldsUpdate: {
     [key: string]: boolean;
   }
@@ -693,33 +690,43 @@ const updateHiddenFields = async (
   const profile = await Profile.findOne({ userId });
   if (!profile) {
     throw new AppError(
-      StatusCodes.NOT_FOUND, 
+      StatusCodes.NOT_FOUND,
       "Profile not found for this user"
     );
   }
 
   // Validate that only valid hidden field names are provided
   const validHiddenFields = [
-    'gender', 'hometown', 'workplace', 'jobTitle', 
-    'school', 'studyLevel', 'religious', 'drinkingStatus', 'smokingStatus'
+    "gender",
+    "hometown",
+    "workplace",
+    "jobTitle",
+    "school",
+    "studyLevel",
+    "religious",
+    "drinkingStatus",
+    "smokingStatus",
   ];
 
   const invalidFields = Object.keys(hiddenFieldsUpdate).filter(
-    field => !validHiddenFields.includes(field)
+    (field) => !validHiddenFields.includes(field)
   );
 
   if (invalidFields.length > 0) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      `Invalid hidden field(s): ${invalidFields.join(', ')}. Valid fields are: ${validHiddenFields.join(', ')}`
+      `Invalid hidden field(s): ${invalidFields.join(
+        ", "
+      )}. Valid fields are: ${validHiddenFields.join(", ")}`
     );
   }
 
   // Prepare the update object for hiddenFields
   const hiddenFieldsUpdateQuery: any = {};
-  
-  Object.keys(hiddenFieldsUpdate).forEach(field => {
-    hiddenFieldsUpdateQuery[`hiddenFields.${field}`] = hiddenFieldsUpdate[field];
+
+  Object.keys(hiddenFieldsUpdate).forEach((field) => {
+    hiddenFieldsUpdateQuery[`hiddenFields.${field}`] =
+      hiddenFieldsUpdate[field];
   });
 
   // Update the profile with new hidden fields settings
@@ -733,7 +740,10 @@ const updateHiddenFields = async (
   });
 
   if (!updatedProfile) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "Failed to update hidden fields");
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "Failed to update hidden fields"
+    );
   }
 
   // Clear any cached user data to ensure fresh data on next request

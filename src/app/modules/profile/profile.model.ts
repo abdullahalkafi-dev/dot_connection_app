@@ -199,7 +199,7 @@ const profileSchema = new Schema<TProfile, ProfileModal>(
 );
 
 // Indexes for better performance
-profileSchema.index({ location: "2dsphere" });
+profileSchema.index({ location: "2dsphere" }); // Geospatial index for location-based queries
 profileSchema.index({ interests: 1 });
 profileSchema.index({ gender: 1 });
 profileSchema.index({ ageRangeMin: 1, ageRangeMax: 1 });
@@ -208,7 +208,6 @@ profileSchema.index({ lastActive: -1 });
 profileSchema.index({ createdAt: -1 });
 profileSchema.index({ userId: 1, gender: 1, interestedIn: 1 });
 profileSchema.index({ gender: 1, interestedIn: 1 });
-profileSchema.index({ "location.coordinates": "2dsphere" });
 
 // Static method to find profile by user ID
 profileSchema.statics.findByUserId = async function (userId: string) {

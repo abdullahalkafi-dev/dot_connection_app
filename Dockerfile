@@ -39,7 +39,7 @@ COPY . .
 # Install typescript globally and build
 RUN pnpm install -g typescript && pnpm build
 
-# After building, remove dev dependencies to keep image lean (optional)
+
 # RUN pnpm install --production
 
 EXPOSE 5009
