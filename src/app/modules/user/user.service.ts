@@ -634,6 +634,25 @@ const getNearbyUsers = async (
       },
     },
     {
+      $lookup: {
+        from: "connections",
+        let: { nearbyUserId: "$userId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $in: [new mongoose.Types.ObjectId(currentUserId), "$userIds"] },
+                  { $in: ["$$nearbyUserId", "$userIds"] }
+                ]
+              }
+            }
+          }
+        ],
+        as: "connection"
+      }
+    },
+    {
       $project: {
         userId: "$userId",
         distance: { $round: ["$distance", 0] }, // Distance in meters, rounded
@@ -669,6 +688,7 @@ const getNearbyUsers = async (
         height: 1,
         workplace: 1,
         school: 1,
+        isConnected: { $cond: [{ $gt: [{ $size: "$connection" }, 0] }, true, false] }
       },
     },
     {
@@ -694,6 +714,7 @@ const updateHiddenFields = async (
       "Profile not found for this user"
     );
   }
+  
 
   // Validate that only valid hidden field names are provided
   const validHiddenFields = [

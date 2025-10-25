@@ -441,7 +441,7 @@ if (!data.allUserFieldsFilled) {
 
 ### 1.10 Get Nearby Users
 - **Endpoint:** `GET /user/nearby`
-- **Description:** Find users near your location
+- **Description:** Find users near your location with connection status
 - **Auth Required:** Yes
 - **Query Parameters:**
   - `radius` - Search radius in km (optional, default: 25)
@@ -458,17 +458,71 @@ if (!data.allUserFieldsFilled) {
 ```json
 {
   "success": true,
+  "message": "Nearby users retrieved successfully",
   "data": [
     {
-      "_id": "user_id",
-      "firstName": "Jane",
-      "lastName": "Smith",
-      "profile": { ... },
-      "distance": 5.2
+      "_id": "profile_id",
+      "userId": "user_id_123",
+      "name": "Jane Smith",
+      "age": 28,
+      "gender": "female",
+      "image": "https://example.com/photo.jpg",
+      "distance": 5200,
+      "distanceKm": 5.2,
+      "location": {
+        "latitude": 40.7128,
+        "longitude": -74.0060
+      },
+      "bio": "Love to travel and meet new people",
+      "interests": ["Travel", "Music", "Photography"],
+      "interestedIn": "male",
+      "lookingFor": "friendship",
+      "religious": "Christian",
+      "studyLevel": "Bachelor",
+      "height": 165,
+      "workplace": "Tech Corp",
+      "school": "University XYZ",
+      "isConnected": false
+    },
+    {
+      "_id": "profile_id_2",
+      "userId": "user_id_456",
+      "name": "Emma Johnson",
+      "age": 26,
+      "gender": "female",
+      "image": "https://example.com/photo2.jpg",
+      "distance": 8500,
+      "distanceKm": 8.5,
+      "location": {
+        "latitude": 40.7589,
+        "longitude": -73.9851
+      },
+      "bio": "Coffee enthusiast and bookworm",
+      "interests": ["Reading", "Coffee", "Art"],
+      "interestedIn": "everyone",
+      "lookingFor": "dating",
+      "religious": "Atheist",
+      "studyLevel": "Master",
+      "height": 170,
+      "workplace": "Design Studio",
+      "school": "Art Institute",
+      "isConnected": true
     }
   ]
 }
 ```
+
+**Field Descriptions:**
+- `isConnected`: (boolean) Indicates whether you have a mutual match/connection with this user
+  - `true` - You are connected (mutual match exists)
+  - `false` - Not connected (no mutual match)
+- `distance`: Distance in meters (rounded)
+- `distanceKm`: Distance in kilometers (rounded to 2 decimal places)
+
+**Notes:**
+- Users are sorted by distance (closest first)
+- Only returns active, verified users with complete profiles
+- The `isConnected` field helps the frontend distinguish between matched and unmatched users
 
 ---
 
