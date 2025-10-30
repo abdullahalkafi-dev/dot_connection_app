@@ -159,7 +159,8 @@ const updateUserRole = catchAsync(async (req: Request, res: Response) => {
 
 // Send OTP for login
 const sendOTPForLogin = catchAsync(async (req: Request, res: Response) => {
-  const result = await UserServices.sendOTPForLogin(req.body.email);
+  const contact = req.body.email || req.body.phoneNumber;
+  const result = await UserServices.sendOTPForLogin(contact);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -171,8 +172,9 @@ const sendOTPForLogin = catchAsync(async (req: Request, res: Response) => {
 //!mine
 // Verify OTP and login
 const verifyOTPAndLogin = catchAsync(async (req: Request, res: Response) => {
-  const { email, otp } = req.body;
-  const result = await UserServices.verifyOTPAndLogin(email, otp);
+  const { email, phoneNumber, otp } = req.body;
+  const contact = email || phoneNumber;
+  const result = await UserServices.verifyOTPAndLogin(contact, otp);
 
   // Set refresh token as httpOnly cookie
   res.cookie("refreshToken", result.refreshToken, {
@@ -194,7 +196,8 @@ const verifyOTPAndLogin = catchAsync(async (req: Request, res: Response) => {
 
 // Resend OTP
 const resendOTP = catchAsync(async (req: Request, res: Response) => {
-  const result = await UserServices.resendOTP(req.body.email);
+  const contact = req.body.email || req.body.phoneNumber;
+  const result = await UserServices.resendOTP(contact);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -218,11 +221,12 @@ const changeUserStatus = catchAsync(async (req: Request, res: Response) => {
 
 // Unified signin - handles both OTP request and verification
 const signin = catchAsync(async (req: Request, res: Response) => {
-  const { email, otp } = req.body;
+  const { email, phoneNumber, otp } = req.body;
+  const contact = email || phoneNumber;
 
   // If OTP is provided, verify and login
   if (otp) {
-    const result = await UserServices.verifyOTPAndLogin(email, otp);
+    const result = await UserServices.verifyOTPAndLogin(contact, otp);
 
     // Set refresh token as httpOnly cookie
     res.cookie("refreshToken", result.refreshToken, {
@@ -242,7 +246,7 @@ const signin = catchAsync(async (req: Request, res: Response) => {
     });
   } else {
     // If no OTP provided, send OTP
-    const result = await UserServices.sendOTPForLogin(email);
+    const result = await UserServices.sendOTPForLogin(contact);
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,

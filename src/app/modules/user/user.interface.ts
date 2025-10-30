@@ -5,7 +5,7 @@ export type TUser = {
   _id?: string;
   firstName?: string;
   lastName?: string;
-  email: string;
+  email?: string; // Made optional - either email or phoneNumber required
   image?: string;
   role?: keyof typeof USER_ROLES;
   phoneNumber?: string;
@@ -27,11 +27,16 @@ export type TUser = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export type ContactType = 'email' | 'phone';
+
 export type UserModal = {
   isExistUserById(id: string): Promise<TUser | null>;
   isExistUserByEmail(email: string): Promise<TUser | null>;
-  isValidOTP(email: string, otp: string): Promise<boolean>;
-  generateOTP(email: string): Promise<string>;
+  isExistUserByPhone(phoneNumber: string): Promise<TUser | null>;
+  isExistUserByEmailOrPhone(contact: string): Promise<TUser | null>;
+  isValidOTP(contact: string, otp: string): Promise<boolean>;
+  generateOTP(contact: string): Promise<string>;
   isOTPExpired(user: TUser): boolean;
   canAttemptLogin(user: TUser): boolean;
 } & Model<TUser>;

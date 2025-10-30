@@ -29,12 +29,14 @@ const userSchema = new Schema<TUser, UserModal>(
     },
     email: {
       type: String,
-      required: true,
+      required: false, // Changed to optional - either email or phoneNumber required
       unique: true,
+      sparse: true, // Allows multiple null values while maintaining unique constraint
       trim: true,
       lowercase: true,
       validate: {
         validator: (value: string) => {
+          if (!value) return true; // Allow empty if phoneNumber is provided
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           return emailRegex.test(value);
         },
@@ -56,7 +58,18 @@ const userSchema = new Schema<TUser, UserModal>(
     phoneNumber: {
       type: String,
       trim: true,
+      unique: true,
+      sparse: true, // Allows multiple null values while maintaining unique constraint
       default: null,
+      validate: {
+        validator: (value: string) => {
+          if (!value) return true; // Allow empty if email is provided
+          // E.164 format validation for international phone numbers
+          const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+          return phoneRegex.test(value);
+        },
+        message: "Please provide a valid phone number in E.164 format (e.g., +1234567890)",
+      },
     },
 
     fcmToken: {
@@ -131,6 +144,15 @@ const userSchema = new Schema<TUser, UserModal>(
     versionKey: false,
   }
 );
+
+// Custom validation: At least one of email or phoneNumber must be provided
+userSchema.pre('validate', function(next) {
+  if (!this.email && !this.phoneNumber) {
+    this.invalidate('email', 'Either email or phone number must be provided');
+    this.invalidate('phoneNumber', 'Either email or phone number must be provided');
+  }
+  next();
+});
 userSchema.index({ status: 1 });
 // this for better index performance
 userSchema.index({ createdAt: -1 });
@@ -160,15 +182,27 @@ userSchema.statics.isExistUserByEmail = async (email: string) => {
   return isExist;
 };
 
+userSchema.statics.isExistUserByPhone = async (phoneNumber: string) => {
+  const isExist = await User.findOne({ phoneNumber });
+  return isExist;
+};
+
+userSchema.statics.isExistUserByEmailOrPhone = async (contact: string) => {
+  const isExist = await User.findOne({
+    $or: [{ email: contact }, { phoneNumber: contact }]
+  });
+  return isExist;
+};
+
 //generate and store OTP
 userSchema.statics.generateOTP = async function (
-  email: string
+  contact: string
 ): Promise<string> {
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
   const expireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
   await this.findOneAndUpdate(
-    { email },
+    { $or: [{ email: contact }, { phoneNumber: contact }] },
     {
       $set: {
         "authentication.oneTimeCode": otpCode,
@@ -182,10 +216,12 @@ userSchema.statics.generateOTP = async function (
 
 //validate OTP
 userSchema.statics.isValidOTP = async function (
-  email: string,
+  contact: string,
   otp: string
 ): Promise<boolean> {
-  const user = await this.findOne({ email });
+  const user = await this.findOne({
+    $or: [{ email: contact }, { phoneNumber: contact }]
+  });
   if (
     !user ||
     !user.authentication?.oneTimeCode ||

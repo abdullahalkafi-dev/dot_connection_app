@@ -2,7 +2,7 @@ import { StatusCodes } from "http-status-codes";
 import { QueryBuilder } from "../../builder/QueryBuilder";
 import AppError from "../../errors/AppError";
 import UserCacheManage from "./user.cacheManage";
-import { TReturnUser, TUser } from "./user.interface";
+import { ContactType, TReturnUser, TUser } from "./user.interface";
 import { User } from "./user.model";
 import mongoose from "mongoose";
 import { emailTemplate } from "../../../mail/emailTemplate";
@@ -12,6 +12,21 @@ import config from "../../../config";
 import { Profile } from "../profile/profile.model";
 import unlinkFile from "../../../shared/unlinkFile";
 import { TProfile } from "../profile/profile.interface";
+import { sendOtp } from "../../../helpers/twilioSendMessage";
+
+// Helper function to identify if contact is email or phone number
+const identifyContactType = (contact: string): ContactType => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^\+?[1-9]\d{1,14}$/; // E.164 format
+
+  if (emailRegex.test(contact)) return "email";
+  if (phoneRegex.test(contact)) return "phone";
+
+  throw new AppError(
+    StatusCodes.BAD_REQUEST,
+    "Invalid contact format. Provide a valid email or phone number."
+  );
+};
 
 const getUserById = async (id: string) => {
   console.log(id);
@@ -131,10 +146,15 @@ const changeUserStatus = async (userId: string) => {
 };
 
 // Send OTP for login
-const sendOTPForLogin = async (email: string) => {
-  const user = await User.isExistUserByEmail(email);
+const sendOTPForLogin = async (contact: string) => {
+  const contactType = identifyContactType(contact);
+
+  const user = await User.isExistUserByEmailOrPhone(contact);
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found with this email");
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      `User not found with this ${contactType}`
+    );
   }
 
   // Check rate limiting
@@ -146,37 +166,49 @@ const sendOTPForLogin = async (email: string) => {
   }
 
   // Generate and store OTP
-  const otp = await User.generateOTP(email);
+  const otp = await User.generateOTP(contact);
   console.log(otp);
-  // Send email with OTP
-  const emailContent = emailTemplate.createAccount({
-    otp,
-    email: user.email,
-    name: user.firstName || "User",
-    theme: "theme-blue",
-  });
 
-  await emailHelper.sendEmail({
-    to: user.email,
-    subject: "Your Sign-in Verification Code",
-    html: emailContent.html,
-  });
+  // Send OTP via email or SMS based on contact type
+  if (contactType === "email") {
+    const emailContent = emailTemplate.createAccount({
+      otp,
+      email: contact,
+      name: user.firstName || "User",
+      theme: "theme-blue",
+    });
+
+    await emailHelper.sendEmail({
+      to: contact,
+      subject: "Your Sign-in Verification Code",
+      html: emailContent.html,
+    });
+  } else {
+    // Send via SMS
+    await sendOtp(contact, otp);
+  }
 
   return {
-    message: "Verification code sent successfully to your email",
-    email: user.email,
+    message: `Verification code sent successfully to your ${contactType}`,
+    ...(contactType === "email"
+      ? { email: contact }
+      : { phoneNumber: contact }),
   };
 };
 
 // Request new OTP (resend)
-const resendOTP = async (email: string) => {
-  return await sendOTPForLogin(email);
+const resendOTP = async (contact: string) => {
+  return await sendOTPForLogin(contact);
 };
 //!mine
-const verifyOTPAndLogin = async (email: string, otp: string) => {
-  const user = await User.isExistUserByEmail(email);
+const verifyOTPAndLogin = async (contact: string, otp: string) => {
+  const user = await User.isExistUserByEmailOrPhone(contact);
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found with this email");
+    const contactType = identifyContactType(contact);
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      `User not found with this ${contactType}`
+    );
   }
 
   // Check rate limiting
@@ -188,7 +220,7 @@ const verifyOTPAndLogin = async (email: string, otp: string) => {
   }
 
   // Validate OTP
-  const isValidOTP = await User.isValidOTP(email, otp);
+  const isValidOTP = await User.isValidOTP(contact, otp);
   if (!isValidOTP) {
     // Increment failed attempts
     await User.findByIdAndUpdate(user._id, {
@@ -269,18 +301,48 @@ const getAllUsers = async (
 };
 //!mine
 const createUser = async (
-  user: TUser
-): Promise<{ message: string; email: string }> => {
+  user: Partial<TUser>
+): Promise<{ message: string; email?: string; phoneNumber?: string }> => {
   let message = "";
-  // Check if user exists
-  const existingUser = await User.findOne({ email: user.email }).lean();
+
+  // Determine the contact provided
+  const contact = user.email || user.phoneNumber;
+  if (!contact) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "Either email or phone number must be provided"
+    );
+  }
+
+  const contactType = identifyContactType(contact);
+
+  // Check if user exists with this email or phone
+  const existingUser = await User.findOne({
+    $or: [
+      ...(user.email ? [{ email: user.email }] : []),
+      ...(user.phoneNumber ? [{ phoneNumber: user.phoneNumber }] : []),
+    ],
+  }).lean();
 
   if (existingUser) {
     // If user exists and is verified, just send OTP
     if (existingUser.verified) {
-      await sendOTPForLogin(existingUser.email);
-      message = "Verification code sent successfully to your email";
-      return { message, email: existingUser.email };
+      const userContact = existingUser.email || existingUser.phoneNumber;
+      if (!userContact) {
+        throw new AppError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          "User contact information missing"
+        );
+      }
+      await sendOTPForLogin(userContact);
+      message = `Verification code sent successfully to your ${contactType}`;
+      return {
+        message,
+        ...(existingUser.email ? { email: existingUser.email } : {}),
+        ...(existingUser.phoneNumber
+          ? { phoneNumber: existingUser.phoneNumber }
+          : {}),
+      };
     }
 
     // If user exists but not verified, delete the old account
@@ -288,20 +350,36 @@ const createUser = async (
     await Profile.findOneAndDelete({ userId: existingUser._id });
   }
 
-  // Create new user with only email
-  const newUser = await User.create({ email: user.email });
+  // Create new user with email or phone
+  const newUser = await User.create({
+    ...(user.email && { email: user.email }),
+    ...(user.phoneNumber && { phoneNumber: user.phoneNumber }),
+  });
+
   if (!newUser) {
     throw new AppError(StatusCodes.BAD_REQUEST, "User creation failed");
   }
 
   // Send OTP for verification
-  await sendOTPForLogin(newUser.email);
+  const newUserContact = newUser.email || newUser.phoneNumber;
+  if (!newUserContact) {
+    throw new AppError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      "User contact information missing"
+    );
+  }
+  await sendOTPForLogin(newUserContact);
 
   if (newUser._id) {
     await UserCacheManage.updateUserCache(newUser._id.toString());
   }
-  message = "User created successfully. Verification code sent to your email";
-  return { message, email: newUser.email };
+
+  message = `User created successfully. Verification code sent to your ${contactType}`;
+  return {
+    message,
+    ...(newUser.email ? { email: newUser.email } : {}),
+    ...(newUser.phoneNumber ? { phoneNumber: newUser.phoneNumber } : {}),
+  };
 };
 //!mine
 const getMe = async (id: string) => {
@@ -642,22 +720,26 @@ const getNearbyUsers = async (
             $match: {
               $expr: {
                 $and: [
-                  { $in: [new mongoose.Types.ObjectId(currentUserId), "$userIds"] },
-                  { $in: ["$$nearbyUserId", "$userIds"] }
-                ]
-              }
-            }
-          }
+                  {
+                    $in: [
+                      new mongoose.Types.ObjectId(currentUserId),
+                      "$userIds",
+                    ],
+                  },
+                  { $in: ["$$nearbyUserId", "$userIds"] },
+                ],
+              },
+            },
+          },
         ],
-        as: "connection"
-      }
+        as: "connection",
+      },
     },
     {
       $project: {
         userId: "$userId",
         distance: { $round: ["$distance", 0] }, // Distance in meters, rounded
         distanceKm: { $round: [{ $divide: ["$distance", 1000] }, 2] }, // Distance in km
-        image: { $arrayElemAt: ["$photos", 0] }, // First profile image
         location: {
           latitude: { $arrayElemAt: ["$location.coordinates", 1] },
           longitude: { $arrayElemAt: ["$location.coordinates", 0] },
@@ -685,14 +767,18 @@ const getNearbyUsers = async (
         religious: 1,
         studyLevel: 1,
         bio: 1,
+        profilePicture: { $ifNull: ["$user.image", null] }, // Profile picture from User model
+        photos: 1,
         height: 1,
         workplace: 1,
         school: 1,
-        isConnected: { $cond: [{ $gt: [{ $size: "$connection" }, 0] }, true, false] }
+        isConnected: {
+          $cond: [{ $gt: [{ $size: "$connection" }, 0] }, true, false],
+        },
       },
     },
     {
-      $sort: { distance: 1 }, // Sort by distance (closest first)
+      $sort: { distance: 1 },
     },
   ]);
 
@@ -714,7 +800,6 @@ const updateHiddenFields = async (
       "Profile not found for this user"
     );
   }
-  
 
   // Validate that only valid hidden field names are provided
   const validHiddenFields = [

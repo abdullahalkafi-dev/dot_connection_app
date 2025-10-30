@@ -14,7 +14,6 @@ const superUser: TUser = {
   pushNotification: true,
   allProfileFieldsFilled: false,
   allUserFieldsFilled: false,
-  phoneNumber: "N/A",
   status: "active",
    isProfileVerified: true,
 };

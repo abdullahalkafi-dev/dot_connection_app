@@ -55,10 +55,11 @@ const profileSchema = new Schema<TProfile, ProfileModal>(
       type: String,
       enum: ["friendship", "dating", "relationship", "networking"],
     },
+    
     maxDistance: {
       type: Number,
       min: 1,
-      max: 25,
+      max: 100,
       default: 25,
     },
     ageRangeMin: {

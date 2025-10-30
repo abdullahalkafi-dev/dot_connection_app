@@ -23,7 +23,7 @@ const getPotentialMatches = async (
     .select('gender interestedIn location')
     .lean()
     .exec();
-
+console.log(currentUserProfile);
   if (!currentUserProfile) {
     throw new AppError(StatusCodes.NOT_FOUND, "User profile not found");
   }

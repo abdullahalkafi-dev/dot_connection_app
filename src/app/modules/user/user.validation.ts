@@ -22,30 +22,45 @@ const locationSchema = z
 const createUser = z.object({
   body: z
     .object({
-      email: z.string().email("Invalid email address").trim().toLowerCase(),
+      email: z.string().email("Invalid email address").trim().toLowerCase().optional(),
+      phoneNumber: z.string().trim().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format. Use E.164 format (e.g., +1234567890)").optional(),
     })
-    .strict(),
+    .strict()
+    .refine((data) => data.email || data.phoneNumber, {
+      message: "Either email or phoneNumber must be provided",
+      path: ["email"], // Show error on email field
+    }),
 });
 
 const loginRequest = z.object({
   body: z
     .object({
-      email: z.string().email("Invalid email address").trim().toLowerCase(),
+      email: z.string().email("Invalid email address").trim().toLowerCase().optional(),
+      phoneNumber: z.string().trim().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format. Use E.164 format (e.g., +1234567890)").optional(),
     })
-    .strict(),
+    .strict()
+    .refine((data) => data.email || data.phoneNumber, {
+      message: "Either email or phoneNumber must be provided",
+      path: ["email"],
+    }),
 });
 
 const verifyOTP = z.object({
   body: z
     .object({
-      email: z.string().email("Invalid email address").trim().toLowerCase(),
+      email: z.string().email("Invalid email address").trim().toLowerCase().optional(),
+      phoneNumber: z.string().trim().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format. Use E.164 format (e.g., +1234567890)").optional(),
       otp: z
         .string()
         .min(6, "OTP must be 6 digits")
         .max(6, "OTP must be 6 digits")
         .regex(/^\d{6}$/, "OTP must be 6 digits"),
     })
-    .strict(),
+    .strict()
+    .refine((data) => data.email || data.phoneNumber, {
+      message: "Either email or phoneNumber must be provided",
+      path: ["email"],
+    }),
 });
 
 const updateUser = z.object({

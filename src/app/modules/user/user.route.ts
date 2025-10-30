@@ -16,7 +16,7 @@ const router = express.Router();
 //!mine
 router.post(
   "/",
-  authLimiter, // Rate limit auth attempts
+  authLimiter, 
   validateRequest(UserValidation.createUser),
   UserController.createUser
 );

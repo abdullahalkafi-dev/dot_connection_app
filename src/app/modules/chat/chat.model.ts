@@ -22,8 +22,8 @@ const chatSchema = new Schema<TChat, ChatModel>(
   }
 );
 
+
 // Indexes
-chatSchema.index({ participants: 1 });
 chatSchema.index({ lastMessageTime: -1 });
 
 // Ensure only 2 participants and unique combinations
@@ -35,7 +35,7 @@ chatSchema.pre('save', function() {
   this.participants.sort((a, b) => a.toString().localeCompare(b.toString()));
 });
 
-// Unique index for participant combinations
+// Unique index for participant combinations (single definition)
 chatSchema.index({ participants: 1 }, { unique: true });
 
 // Static methods
