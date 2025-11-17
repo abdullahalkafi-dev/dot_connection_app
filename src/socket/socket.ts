@@ -63,26 +63,23 @@ const setupSocket = (server: any) => {
       }
     });
 
-    socket.on("sendMessage", async (data) => {
+    socket.on("sendMessage", async (data, callback) => {
       try {
         console.log(
           "sendMessage",
-          !data.senderId || !data.receiverId || (!data.message && !data.image)
+          !data.senderId || !data.receiverId || (!data.message && !data.image && !data.audio)
         );
-        // Add basic validation
-        if (
-          !data.senderId ||
-          !data.receiverId ||
-          (!data.message && !data.image)
-        ) {
-          socket.emit("error", { message: "Invalid message data" });
-          return;
-        }
-
-        await handleSendMessage(data); // Call the function to handle sending messages
+        
+        // Call the function to handle sending messages with callback
+        await handleSendMessage(data, callback);
       } catch (error) {
         console.error("Error in sendMessage:", error);
-        socket.emit("error", { message: "Failed to send message" });
+        const errorResponse = { error: "Failed to send message" };
+        if (callback) {
+          callback(errorResponse);
+        } else {
+          socket.emit("messageError", errorResponse);
+        }
       }
     });
 

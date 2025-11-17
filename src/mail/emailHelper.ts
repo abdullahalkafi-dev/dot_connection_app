@@ -1,28 +1,25 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import config from '../config';
 import { errorLogger, logger } from '../shared/logger';
 import { ISendEmail } from './email';
 
-const transporter = nodemailer.createTransport({
-  host: config.email.host,
-  port: Number(config.email.port),
-  secure: false,
-  auth: {
-    user: config.email.user,
-    pass: config.email.pass,
-  },
-});
+const resend = new Resend(config.resend.api_key);
 
 const sendEmail = async (values: ISendEmail) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"dot_connection_app" ${config.email.from}`,
-      to: values.to,
+    const { data, error } = await resend.emails.send({
+      from: `TrueDots <${config.resend.mail_domain}>` as string,
+      to: values.to as string,
       subject: values.subject,
       html: values.html,
     });
 
-    logger.info('Mail send successfully', info.accepted);
+    if (error) {
+      errorLogger.error('Email Error', error);
+      return;
+    }
+
+    logger.info('Mail sent successfully', data);
   } catch (error) {
     errorLogger.error('Email', error);
   }

@@ -41,6 +41,7 @@ export const PROFILE_RELIGION = {
 
 export const PROFILE_INTERESTS = {
   TRAVEL: "travel",
+  ART: "art",
   FITNESS: "fitness",
   PHOTOGRAPHY: "photography",
   COOKING: "cooking",

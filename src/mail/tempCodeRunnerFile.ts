@@ -1,26 +1,17 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 import { StatusCodes } from "http-status-codes";
 import config from "../config";
 import AppError from "../app/errors/AppError";
 
+const resend = new Resend(config.resend.api_key);
+
 export async function sendEmail(email: string, subject: string, text: string) {
   try {
-    const transporter = nodemailer.createTransport({
-      host: config.email.host,
-      port: Number(config.email.port),
-      secure: false,
-      auth: {
-        user: config.email.user,
-        pass: config.email.pass,
-      },
-    });
-
-    const info = await transporter.sendMail({
-      from: `"dot_connection_app" ${config.email.from}`, // Sender address
-      to: email, // Recipient's email
-      subject: `${subject}`, // Subject line
-      text: text, // Plain text version
+    const { data, error } = await resend.emails.send({
+      from: `TrueDots <${config.resend.mail_domain}>` as string,
+      to: email,
+      subject: subject,
       html: `
       <!DOCTYPE html>
 <html lang="en">
@@ -115,7 +106,14 @@ export async function sendEmail(email: string, subject: string, text: string) {
      `,
     });
 
-    return info;
+    if (error) {
+      throw new AppError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        "Error sending email"
+      );
+    }
+
+    return data;
   } catch (error) {
     throw new AppError(
       StatusCodes.INTERNAL_SERVER_ERROR,

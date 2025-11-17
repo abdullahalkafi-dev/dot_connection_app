@@ -64,11 +64,11 @@ const userSchema = new Schema<TUser, UserModal>(
       validate: {
         validator: (value: string) => {
           if (!value) return true; // Allow empty if email is provided
-          // E.164 format validation for international phone numbers
-          const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+          // E.164 format validation for international phone numbers (with required + prefix)
+          const phoneRegex = /^\+[1-9]\d{1,14}$/;
           return phoneRegex.test(value);
         },
-        message: "Please provide a valid phone number in E.164 format (e.g., +1234567890)",
+        message: "Please provide a valid phone number in E.164 format with + prefix (e.g., +1234567890)",
       },
     },
 

@@ -121,7 +121,16 @@ const createMessageWithImages = catchAsync(
     }
 
     const result = await MessageServices.createMessageWithImages(message);
-
+ console.log({
+        _id: (result as any)._id,
+        senderId: message.sender,
+        receiverId: message.receiver,
+        message: message.message,
+        images: message.images,
+        messageType: result.messageType,
+        isRead: false,
+        createdAt: result.createdAt,
+      });
     // Send real-time notification via socket to receiver
     socketService.emitToUser(
       message.receiver.toString(),
@@ -163,12 +172,13 @@ const createMessageWithImages = catchAsync(
 const createMessageWithAudio = catchAsync(
   async (req: Request, res: Response) => {
     const messageData = JSON.parse(req.body.data);
+    console.log(messageData);
     let audio = null;
 
     if (req.files && "audio" in req.files && (req.files.audio as any)[0]) {
       audio = `/audio/${(req.files.audio as any)[0].filename}`;
     }
-
+console.log(audio);
     if (!audio) {
       return sendResponse(res, {
         statusCode: StatusCodes.BAD_REQUEST,

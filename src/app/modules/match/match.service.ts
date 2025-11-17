@@ -10,6 +10,7 @@ import { Match, ConnectionRequest, Connection } from "./match.model";
 import { User } from "../user/user.model";
 import { Profile } from "../profile/profile.model";
 import mongoose from "mongoose";
+import { NotificationServices } from "../notification/notification.service";
 
 // Get potential matches for user (users they haven't interacted with and match preferences)
 const getPotentialMatches = async (
@@ -404,6 +405,29 @@ const performAction = async (
       responseData.connection = connection;
       responseData.message =
         "It's a match! 🎉 Connection created automatically";
+
+      // Send push notification to the other user about the match
+      try {
+        // Get sender's name for personalized notification
+        const fromUser = await User.findById(fromUserId).select('firstName lastName').lean();
+        const senderName = fromUser ? `${fromUser.firstName || ''} ${fromUser.lastName || ''}`.trim() : 'Someone';
+        
+        await NotificationServices.sendNotificationIfNotBlocked(
+          fromUserId,
+          toUserId,
+          "It's a Match! 🎉",
+          `You and ${senderName} liked each other!`,
+          'match',
+          new mongoose.Types.ObjectId(connection._id),
+          {
+            matchedUserId: fromUserId,
+            connectionId: connection._id.toString(),
+          }
+        );
+      } catch (error) {
+        console.error('Failed to send match notification:', error);
+        // Don't throw error, match is still successful
+      }
     } else {
       // Create connection request (one-sided love)
       const connectionRequest = await ConnectionRequest.create({
@@ -414,6 +438,28 @@ const performAction = async (
 
       responseData.connectionRequest = connectionRequest;
       responseData.message = "Love sent! Waiting for their response ❤️";
+      
+      // Send push notification about connection request
+      try {
+        const fromUser = await User.findById(fromUserId).select('firstName lastName').lean();
+        const senderName = fromUser ? `${fromUser.firstName || ''} ${fromUser.lastName || ''}`.trim() : 'Someone';
+        
+        await NotificationServices.sendNotificationIfNotBlocked(
+          fromUserId,
+          toUserId,
+          "New Connection Request ❤️",
+          `${senderName} likes you!`,
+          'connection_request',
+          new mongoose.Types.ObjectId(connectionRequest._id),
+          {
+            requesterId: fromUserId,
+            requestId: connectionRequest._id.toString(),
+          }
+        );
+      } catch (error) {
+        console.error('Failed to send connection request notification:', error);
+        // Don't throw error, request is still created
+      }
     }
   }
 

@@ -8,6 +8,7 @@ import app from './app';
 import config from './config';
 import seedSuperAdmin from './DB';
 import { setupSocket } from './socket/socket';
+import { FCMService } from './shared/fcm.service';
 
 
 //uncaught exception
@@ -39,7 +40,27 @@ async function main() {
       await redisClient.connect();
       logger.info(colors.cyan('📡 Redis connected successfully'));
       
-
+      // Initialize Firebase Cloud Messaging (FCM)
+      try {
+        const serviceAccount = {
+          type: config.firebase.type,
+          project_id: config.firebase.project_id,
+          private_key_id: config.firebase.private_key_id,
+          private_key: config.firebase.private_key?.replace(/\\n/g, '\n'), // Replace escaped newlines
+          client_email: config.firebase.client_email,
+          client_id: config.firebase.client_id,
+          auth_uri: config.firebase.auth_uri,
+          token_uri: config.firebase.token_uri,
+          auth_provider_x509_cert_url: config.firebase.auth_provider_x509_cert_url,
+          client_x509_cert_url: config.firebase.client_x509_cert_url,
+          universe_domain: config.firebase.universe_domain,
+        };
+        
+        FCMService.initialize(serviceAccount);
+        logger.info(colors.magenta('🔔 Firebase Cloud Messaging initialized successfully'));
+      } catch (error) {
+        logger.error(colors.red('❌ Failed to initialize FCM:'), error);
+      }
 
       // Initialize Socket.IO
       setupSocket(server);

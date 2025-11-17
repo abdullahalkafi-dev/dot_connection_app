@@ -17,14 +17,14 @@ import { sendOtp } from "../../../helpers/twilioSendMessage";
 // Helper function to identify if contact is email or phone number
 const identifyContactType = (contact: string): ContactType => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const phoneRegex = /^\+?[1-9]\d{1,14}$/; // E.164 format
+  const phoneRegex = /^\+[1-9]\d{1,14}$/; // E.164 format with required + prefix
 
   if (emailRegex.test(contact)) return "email";
   if (phoneRegex.test(contact)) return "phone";
 
   throw new AppError(
     StatusCodes.BAD_REQUEST,
-    "Invalid contact format. Provide a valid email or phone number."
+    "Invalid contact format. Provide a valid email or phone number in E.164 format."
   );
 };
 
@@ -201,7 +201,7 @@ const resendOTP = async (contact: string) => {
   return await sendOTPForLogin(contact);
 };
 //!mine
-const verifyOTPAndLogin = async (contact: string, otp: string) => {
+const verifyOTPAndLogin = async (contact: string, otp: string, fcmToken?: string) => {
   const user = await User.isExistUserByEmailOrPhone(contact);
   if (!user) {
     const contactType = identifyContactType(contact);
@@ -231,8 +231,8 @@ const verifyOTPAndLogin = async (contact: string, otp: string) => {
     throw new AppError(StatusCodes.BAD_REQUEST, "Invalid or expired OTP");
   }
 
-  // Clear OTP completely and reset login attempts
-  await User.findByIdAndUpdate(user._id, {
+  // Clear OTP completely and reset login attempts, optionally update FCM token
+  const updateData: any = {
     $unset: {
       "authentication.oneTimeCode": 1,
       "authentication.expireAt": 1,
@@ -242,7 +242,14 @@ const verifyOTPAndLogin = async (contact: string, otp: string) => {
       lastLoginAt: new Date(),
       verified: true,
     },
-  });
+  };
+
+  // Add FCM token to update if provided
+  if (fcmToken) {
+    updateData.$set.fcmToken = fcmToken;
+  }
+
+  await User.findByIdAndUpdate(user._id, updateData);
 
   // Generate JWT token
   const jwtPayload = {
@@ -325,8 +332,15 @@ const createUser = async (
   }).lean();
 
   if (existingUser) {
-    // If user exists and is verified, just send OTP
+    // If user exists and is verified, update FCM token if provided and send OTP
     if (existingUser.verified) {
+      // Update FCM token if provided
+      if (user.fcmToken) {
+        await User.findByIdAndUpdate(existingUser._id, { 
+          fcmToken: user.fcmToken 
+        });
+      }
+      
       const userContact = existingUser.email || existingUser.phoneNumber;
       if (!userContact) {
         throw new AppError(
@@ -350,10 +364,11 @@ const createUser = async (
     await Profile.findOneAndDelete({ userId: existingUser._id });
   }
 
-  // Create new user with email or phone
+  // Create new user with email or phone and optional FCM token
   const newUser = await User.create({
     ...(user.email && { email: user.email }),
     ...(user.phoneNumber && { phoneNumber: user.phoneNumber }),
+    ...(user.fcmToken && { fcmToken: user.fcmToken }),
   });
 
   if (!newUser) {

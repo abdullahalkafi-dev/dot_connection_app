@@ -9,7 +9,6 @@ import os from "os";
 import {
   helmetConfig,
   generalLimiter,
-  sanitizeInput,
   compressionConfig,
   additionalSanitization,
 } from "./app/middlewares/security";
@@ -19,9 +18,7 @@ import {
   performanceDashboard,
   apiUsageTracker,
 } from "./app/middlewares/performanceMonitor";
-import { sendOtp } from "./helpers/twilioSendMessage";
 // import admin from 'firebase-admin';
-// import ServiceAccount from '../medmeet-admin.json';
 const app: express.Application = express();
 
 // Trust proxy settings for nginx reverse proxy
@@ -59,6 +56,7 @@ app.use(
       "http://localhost:3000",
       "http://10.10.12.125:3000",
       "http://localhost:3001",
+      "https://j5dmj0c5-5009.inc1.devtunnels.ms", // Dev Tunnels URL
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,

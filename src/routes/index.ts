@@ -6,6 +6,7 @@ import { ChatRoutes } from "../app/modules/chat/chat.route";
 import { MessageRoutes } from "../app/modules/message/message.route";
 import { BlockRoutes } from "../app/modules/block/block.route";
 import { SettingRoutes } from "../app/modules/setting/setting.route";
+import { NotificationRoutes } from "../app/modules/notification/notification.route";
 
 const router: Router = express.Router();
 
@@ -37,6 +38,10 @@ const apiRoutes = [
   {
     path: "/setting",
     route: SettingRoutes,
+  },
+  {
+    path: "/notification",
+    route: NotificationRoutes,
   },
 ];
 

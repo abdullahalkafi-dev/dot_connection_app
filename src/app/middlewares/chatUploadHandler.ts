@@ -90,20 +90,26 @@ const fileFilter = (req: Request, file: any, cb: FileFilterCallback) => {
       );
     }
   } else if (file.fieldname === "audio") {
+    console.log("Audio file received - MIME type:", file.mimetype);
     if (
       file.mimetype === "audio/mpeg" ||
       file.mimetype === "audio/mp3" ||
       file.mimetype === "audio/wav" ||
       file.mimetype === "audio/m4a" ||
       file.mimetype === "audio/aac" ||
-      file.mimetype === "audio/ogg"
+      file.mimetype === "audio/ogg" ||
+      file.mimetype === "audio/mp4" ||
+      file.mimetype === "audio/x-m4a" ||
+      file.mimetype === "audio/3gpp" ||
+      file.mimetype === "audio/amr"
     ) {
       cb(null, true);
     } else {
+      console.error("Unsupported audio MIME type:", file.mimetype);
       cb(
         new AppError(
           StatusCodes.BAD_REQUEST,
-          "Only audio files are allowed for audio upload"
+          `Only audio files are allowed for audio upload. Received: ${file.mimetype}`
         )
       );
     }
@@ -126,7 +132,7 @@ const chatUpload = multer({
 });
 
 // Middleware to process uploaded images
-const processChatImages = (req: Request, res: Response, next: NextFunction) => {
+const processChatImages = async (req: Request, res: Response, next: NextFunction) => {
   if (!req.files) {
     return next();
   }
@@ -135,44 +141,46 @@ const processChatImages = (req: Request, res: Response, next: NextFunction) => {
   
   // Process all image fields
   const imageFields = ['image', 'images'];
+  const processingPromises: Promise<void>[] = [];
   
   for (const fieldName of imageFields) {
     if (files[fieldName]) {
       for (const file of files[fieldName]) {
         if (file.fieldname === 'image' || file.fieldname === 'images') {
-          try {
-            const inputFilePath = file.path;
-            const outputFileName = file.filename.replace('.tmp', '.webp');
-            const newFilePath = path.join(path.dirname(inputFilePath), outputFileName);
+          const inputFilePath = file.path;
+          const outputFileName = file.filename.replace('.tmp', '.webp');
+          const newFilePath = path.join(path.dirname(inputFilePath), outputFileName);
 
-            // Convert and compress image to WebP
-            sharp(inputFilePath)
-              .toFormat('webp', { quality: 80 })
-              .toFile(newFilePath)
-              .then(() => {
-                // Remove the temporary file
-                fs.unlinkSync(inputFilePath);
-                
-                // Update file metadata
-                file.path = newFilePath;
-                file.filename = outputFileName;
-              })
-              .catch((error) => {
-                console.error('Image processing error:', error);
-                return next(new AppError(StatusCodes.INTERNAL_SERVER_ERROR, "Image processing failed"));
-              });
-          } catch (error) {
-            return next(new AppError(StatusCodes.INTERNAL_SERVER_ERROR, "Image processing failed"));
-          }
+          // Convert and compress image to WebP
+          const processingPromise = sharp(inputFilePath)
+            .toFormat('webp', { quality: 80 })
+            .toFile(newFilePath)
+            .then(() => {
+              // Remove the temporary file
+              fs.unlinkSync(inputFilePath);
+              
+              // Update file metadata
+              file.path = newFilePath;
+              file.filename = outputFileName;
+            })
+            .catch((error) => {
+              console.error('Image processing error:', error);
+              throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, "Image processing failed");
+            });
+            
+          processingPromises.push(processingPromise);
         }
       }
     }
   }
 
-  // Add a small delay to ensure image processing is complete
-  setTimeout(() => {
+  try {
+    // Wait for all images to be processed
+    await Promise.all(processingPromises);
     next();
-  }, 1000);
+  } catch (error) {
+    next(error);
+  }
 };
 
 export { chatUpload, processChatImages };
