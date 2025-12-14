@@ -334,6 +334,46 @@ const updateHiddenFields = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+//!mine - Get Persona verification URL
+const getPersonaVerificationUrl = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user._id;
+  const result = await UserServices.getPersonaVerificationUrl(userId);
+  
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Persona verification URL generated successfully",
+    data: result,
+  });
+});
+
+//!mine - Webhook handler for Persona verification updates
+const personaWebhook = catchAsync(async (req: Request, res: Response) => {
+  const signature = req.headers['persona-signature'] as string;
+  
+  // Get the raw body - Express provides it on req.body for webhooks
+  // We need to use the raw body string, not re-stringify the parsed object
+  const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+  
+  console.log('Persona webhook event:', {
+    type: req.body?.data?.type,
+    eventName: req.body?.data?.attributes?.name,
+    payload: req.body?.data?.attributes?.payload?.data?.type,
+    payloadStatus: req.body?.data?.attributes?.payload?.data?.attributes?.status,
+    includedCount: req.body?.data?.attributes?.payload?.included?.length || 0
+  });
+  
+  await UserServices.handlePersonaWebhook(rawBody, signature, req.body);
+  
+  // Respond quickly to Persona
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Webhook processed successfully",
+    data: null,
+  });
+});
+
 export const UserController = {
   createUser,
   getAllUsers,
@@ -353,4 +393,6 @@ export const UserController = {
   updateProfileByToken,
   deleteProfileImage,
   updateHiddenFields,
+  getPersonaVerificationUrl,
+  personaWebhook,
 };

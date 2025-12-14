@@ -83,6 +83,19 @@ router.patch(
   UserController.updateHiddenFields
 );
 
+//!mine - Get Persona verification URL
+router.get(
+  "/persona/verification-url",
+  auth(),
+  UserController.getPersonaVerificationUrl
+);
+
+//!mine - Persona webhook endpoint (no auth, verified via signature)
+router.post(
+  "/persona/webhook",
+  UserController.personaWebhook
+);
+
 //!mine
 router.delete(
   "/profile/image/:imageIndex",

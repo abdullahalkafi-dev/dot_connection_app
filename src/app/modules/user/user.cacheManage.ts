@@ -42,7 +42,7 @@ const UserCacheManage = {
     try {
       // Remove the specific user cache
       await cacheService.deleteCache(UserCacheManage.keys.userId(userId));
-
+      
       // Remove the general user list cache
       await cacheService.deleteCache(UserCacheManage.keys.userList);
 
@@ -50,6 +50,8 @@ const UserCacheManage = {
       await cacheService.invalidateByPattern(
         UserCacheManage.keys.userListWithQuery + ":*"
       );
+      
+
     } catch (error) {
       console.warn('Error updating user cache:', error);
       // Don't throw - cache invalidation failures shouldn't break the app

@@ -54,4 +54,10 @@ export default {
     client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
     universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
   },
+  persona: {
+    api_key: process.env.PERSONA_API_KEY,
+    template_id: process.env.PERSONA_TEMPLATE_ID,
+    environment: process.env.PERSONA_ENVIRONMENT,
+    webhook_secret: process.env.PERSONA_WEBHOOK_SECRET,
+  },
 };

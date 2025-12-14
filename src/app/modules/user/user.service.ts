@@ -13,6 +13,10 @@ import { Profile } from "../profile/profile.model";
 import unlinkFile from "../../../shared/unlinkFile";
 import { TProfile } from "../profile/profile.interface";
 import { sendOtp } from "../../../helpers/twilioSendMessage";
+import { 
+  createPersonaInquiry, 
+  verifyPersonaWebhookSignature 
+} from "../../../shared/personaService";
 
 // Helper function to identify if contact is email or phone number
 const identifyContactType = (contact: string): ContactType => {
@@ -873,6 +877,168 @@ const updateHiddenFields = async (
   return updatedProfile;
 };
 
+//!mine - Get Persona verification URL
+const getPersonaVerificationUrl = async (userId: string) => {
+  // Find user
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  // Check if user is already verified
+  if (user.isPersonaVerified) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "User is already verified with Persona"
+    );
+  }
+
+  // Check if user's email is verified first
+  if (!user.verified) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "Please verify your email/phone before proceeding with identity verification"
+    );
+  }
+
+  // Create inquiry and get verification URL
+  const verificationUrl = await createPersonaInquiry(
+    userId,
+    user.email
+  );
+
+  return {
+    verificationUrl,
+    userId,
+  };
+};
+
+//!mine - Handle Persona webhook
+const handlePersonaWebhook = async (
+  payload: string,
+  signature: string,
+  webhookData: any
+) => {
+  // Verify webhook signature
+  const isValid = verifyPersonaWebhookSignature(payload, signature);
+  
+  if (!isValid) {
+    throw new AppError(
+      StatusCodes.UNAUTHORIZED,
+      "Invalid webhook signature"
+    );
+  }
+
+  let data = webhookData.data;
+  let included = webhookData.included;
+  
+  // Handle event-based webhooks (newer Persona webhook format)
+  if (data?.type === 'event') {
+    const eventName = data.attributes?.name;
+    console.log(`Persona event received: ${eventName}`);
+    
+    // Extract the actual inquiry data from the event payload
+    if (data.attributes?.payload) {
+      const payload = data.attributes.payload;
+      data = payload.data;
+      included = payload.included || [];
+      console.log(`Extracted from payload: userId=${data.attributes?.['reference-id']}, includedCount=${included.length}`);
+    }
+  }
+  
+  console.log(`Processing: type=${data?.type}, status=${data?.attributes?.status}, userId=${data?.attributes?.['reference-id']}`);
+  
+  // Handle inquiry.completed or inquiry.approved event
+  if (
+    data?.type === 'inquiry' && 
+    (data.attributes?.status === 'completed' || data.attributes?.status === 'approved')
+  ) {
+    const userId = data.attributes['reference-id'];
+    const inquiryId = data.id;
+
+    // Check if there are verification results in the included array
+    let isVerified = false;
+    
+    if (included && Array.isArray(included)) {
+      // Find all government-id verifications
+      const verifications = included.filter(
+        (item: any) => item.type === 'verification/government-id'
+      );
+      
+      console.log(`Found ${verifications.length} verification(s)`);
+      
+      // Check if ANY verification passed
+      const hasPassedVerification = verifications.some(
+        (ver: any) => ver.attributes?.status === 'passed'
+      );
+      
+      if (hasPassedVerification) {
+        isVerified = true;
+        console.log(`✓ Verification passed for user ${userId}`);
+      } else {
+        console.log(`✗ No passed verification for user ${userId}`);
+      }
+    }
+    
+    // If inquiry is approved, set verified to true regardless of checks
+    if (data.attributes.status === 'approved') {
+      isVerified = true;
+      console.log(`✓ Inquiry approved for user ${userId}`);
+    }
+
+    console.log(`Updating user ${userId}: isPersonaVerified=${isVerified}`);
+    
+    // Update user's verification status
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { 
+        $set: { 
+          isPersonaVerified: isVerified 
+        } 
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      throw new AppError(
+        StatusCodes.NOT_FOUND,
+        `User not found with ID: ${userId}`
+      );
+    }
+
+    // Clear user cache
+    await UserCacheManage.updateUserCache(userId);
+    await UserCacheManage.updateUserCache(`${userId}-me`);
+
+    console.log(`✓ User ${userId} updated successfully, isPersonaVerified=${user.isPersonaVerified}`);
+  }
+
+  // Handle inquiry.failed or inquiry.declined events
+  if (
+    data?.type === 'inquiry' && 
+    (data.attributes?.status === 'failed' || data.attributes?.status === 'declined')
+  ) {
+    const userId = data.attributes['reference-id'];
+    
+    // Set verification to false for failed/declined inquiries
+    await User.findByIdAndUpdate(
+      userId,
+      { 
+        $set: { 
+          isPersonaVerified: false 
+        } 
+      },
+      { new: true }
+    );
+    
+    await UserCacheManage.updateUserCache(userId);
+    await UserCacheManage.updateUserCache(`${userId}-me`);
+    console.log(`Persona verification failed/declined for user ${userId}`);
+  }
+
+  return { success: true };
+};
+
 export const UserServices = {
   createUser,
   getAllUsers,
@@ -891,4 +1057,6 @@ export const UserServices = {
   updateProfileByToken,
   deleteProfileImage,
   updateHiddenFields,
+  getPersonaVerificationUrl,
+  handlePersonaWebhook,
 };

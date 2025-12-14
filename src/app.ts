@@ -40,7 +40,16 @@ app.use(generalLimiter);
 // });
 
 //body parser with size limits
-app.use(express.json({ limit: "10mb" }));
+// Capture raw body for webhook signature verification
+app.use(express.json({ 
+  limit: "10mb",
+  verify: (req: any, res, buf, encoding) => {
+    // Save raw body for webhook endpoints that need signature verification
+    if (req.originalUrl?.includes('/webhook')) {
+      req.rawBody = buf.toString(encoding || 'utf8');
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 

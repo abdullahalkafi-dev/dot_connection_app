@@ -97,6 +97,10 @@ const userSchema = new Schema<TUser, UserModal>(
       type: Boolean,
       default: false,
     },
+    isPersonaVerified: {
+      type: Boolean,
+      default: false,
+    },
     authentication: {
       oneTimeCode: {
         type: String,
