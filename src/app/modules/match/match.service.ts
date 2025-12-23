@@ -232,8 +232,7 @@ console.log(currentUserProfile);
         dateOfBirth: 1,
         firstName: 1,
         lastName: 1,
-
-
+        isPersonaVerified: { $ifNull: ["$isPersonaVerified", false] },
         lastLoginAt: 1,
         age: 1, // Calculated age
         distance: 1, // Calculated distance in km
