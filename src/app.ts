@@ -46,7 +46,7 @@ app.use(express.json({
   verify: (req: any, res, buf, encoding) => {
     // Save raw body for webhook endpoints that need signature verification
     if (req.originalUrl?.includes('/webhook')) {
-      req.rawBody = buf.toString(encoding || 'utf8');
+      req.rawBody = buf.toString((encoding as BufferEncoding) || 'utf8');
     }
   }
 }));

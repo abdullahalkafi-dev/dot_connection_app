@@ -2,6 +2,7 @@
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.796.0",
 		"@types/cookie-parser": "^1.4.8",
+		"axios": "^1.7.9",
 		"bcryptjs": "^3.0.2",
 		"colors": "^1.4.0",
 		"compression": "^1.8.1",

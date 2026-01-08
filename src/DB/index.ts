@@ -15,7 +15,8 @@ const superUser: TUser = {
   allProfileFieldsFilled: false,
   allUserFieldsFilled: false,
   status: "active",
-   isProfileVerified: true,
+  isProfileVerified: true,
+  isPersonaVerified: false,
 };
 
 const seedSuperAdmin = async () => {
