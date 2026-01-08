@@ -5,3 +5,4 @@ medmeet-admin.json
 /uploads/
 dist/
 .pnpm-store/
+plesk-nginx-api.conf
