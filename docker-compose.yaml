@@ -21,6 +21,8 @@ services:
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    ports:
+      - "5009:5009"
     volumes:
       - dot_connection_app-logs:/app/winston
       - /app/node_modules
