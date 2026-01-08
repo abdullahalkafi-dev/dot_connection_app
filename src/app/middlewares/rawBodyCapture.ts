@@ -18,7 +18,7 @@ export const rawBodySaver = (
 /**
  * Express middleware to preserve raw body for specific routes
  */
-export const preserveRawBody = express.json({
+export const preserveRawBody: express.RequestHandler = express.json({
   verify: rawBodySaver,
   limit: '10mb'
-});
+}) as express.RequestHandler;
