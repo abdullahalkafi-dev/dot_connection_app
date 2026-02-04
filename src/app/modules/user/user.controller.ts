@@ -6,13 +6,34 @@ import sendResponse from "../../../shared/sendResponse";
 import { logger } from "../../../shared/logger";
 //!mine
 const createUser = catchAsync(async (req: Request, res: Response) => {
-  const { message ,email} = await UserServices.createUser(req.body);
-  sendResponse(res, {
-    statusCode: StatusCodes.CREATED,
-    success: true,
-    message: message,
-    data: { email },
-  });
+  const result = await UserServices.createUser(req.body);
+  
+  // If tokens are returned (test email bypass), set cookie and return login response
+  if (result.accessToken && result.refreshToken) {
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+    
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: result.message,
+      data: {
+        user: result.user,
+        accessToken: result.accessToken,
+      },
+    });
+  } else {
+    // Normal flow - OTP sent
+    sendResponse(res, {
+      statusCode: StatusCodes.CREATED,
+      success: true,
+      message: result.message,
+      data: { email: result.email, phoneNumber: result.phoneNumber },
+    });
+  }
 });
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {

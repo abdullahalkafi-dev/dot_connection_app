@@ -313,7 +313,7 @@ const getAllUsers = async (
 //!mine
 const createUser = async (
   user: Partial<TUser>
-): Promise<{ message: string; email?: string; phoneNumber?: string }> => {
+): Promise<{ message: string; email?: string; phoneNumber?: string; accessToken?: string; refreshToken?: string; user?: any }> => {
   let message = "";
 
   // Determine the contact provided
@@ -326,6 +326,68 @@ const createUser = async (
   }
 
   const contactType = identifyContactType(contact);
+
+  // TEST EMAIL BYPASS: Auto-login for test@gmail.com if user exists and is verified
+  if (user.email === "test@gmail.com") {
+    const existingUser = await User.findOne({ email: user.email });
+    
+    if (!existingUser || !existingUser.verified) {
+      throw new AppError(
+        StatusCodes.NOT_FOUND,
+        "User not found or not verified"
+      );
+    }
+
+    // Update FCM token if provided
+    if (user.fcmToken) {
+      await User.findByIdAndUpdate(existingUser._id, { 
+        fcmToken: user.fcmToken,
+        lastLoginAt: new Date()
+      });
+    } else {
+      await User.findByIdAndUpdate(existingUser._id, { 
+        lastLoginAt: new Date()
+      });
+    }
+
+    // Generate JWT tokens
+    const jwtPayload = {
+      _id: existingUser._id,
+      firstName: existingUser.firstName,
+      lastName: existingUser.lastName,
+      email: existingUser.email,
+      role: existingUser.role,
+      image: existingUser.image,
+      verified: existingUser.verified,
+      allProfileFieldsFilled: existingUser.allProfileFieldsFilled || false,
+      allUserFieldsFilled: existingUser.allUserFieldsFilled || false,
+    };
+
+    const accessToken = jwtHelper.createToken(
+      jwtPayload,
+      config.jwt.jwt_secret as string,
+      config.jwt.jwt_expire_in as string
+    );
+
+    const refreshToken = jwtHelper.createToken(
+      jwtPayload,
+      config.jwt.jwt_refresh_secret as string,
+      config.jwt.jwt_refresh_expire_in as string
+    );
+
+    // Update user cache
+    if (existingUser._id) {
+      await UserCacheManage.updateUserCache(existingUser._id.toString());
+    }
+
+    return {
+      message: "Test login successful",
+      email: existingUser.email,
+      user: jwtPayload,
+      accessToken,
+      refreshToken,
+    };
+  }
 
   // Check if user exists with this email or phone
   const existingUser = await User.findOne({
